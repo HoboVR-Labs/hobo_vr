@@ -1,6 +1,8 @@
-// (c) 2021 Okawo
-// This code is licensed under MIT license (see LICENSE for details)
+// SPDX-License-Identifier: GPL-2.0-only
 
+// driverlog.cpp - helper logging functions
+
+// Copyright (C) 2020 Josh Miklos <josh.miklos@hobovrlabs.org>
 
 #include "driverlog.h"
 

@@ -1,5 +1,7 @@
-# (c) 2021 Okawo
-# This code is licensed under MIT license (see LICENSE for details)
+# SPDX-License-Identifier: GPL-2.0-only
+
+# Copyright (C) 2020-2021 Oleg Vorobiov <oleg.vorobiov@hobovrlabs.org>
+# Copyright (C) 2020-2021 Josh Miklos <josh.miklos@hobovrlabs.org>
 
 """Various VR utilities."""
 

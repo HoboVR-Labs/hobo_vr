@@ -1,5 +1,6 @@
-# (c) 2021 Simleek
-# This code is licensed under MIT license (see LICENSE for details)
+# SPDX-License-Identifier: GPL-2.0-only
+
+# Copyright (C) 2020 Josh Miklos <josh.miklos@hobovrlabs.org>
 
 import time
 

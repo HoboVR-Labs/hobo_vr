@@ -1,6 +1,7 @@
-# (c) 2021 Simleek
+# SPDX-License-Identifier: GPL-2.0-only
 
-# This code is licensed under MIT license (see LICENSE for details)
+# Copyright (C) 2020-2021 Oleg Vorobiov <oleg.vorobiov@hobovrlabs.org>
+# Copyright (C) 2020-2021 Josh Miklos <josh.miklos@hobovrlabs.org>
 
 from setuptools import setup, find_packages
 from virtualreality import __version__

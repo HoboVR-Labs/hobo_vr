@@ -1,4 +1,5 @@
-# (c) 2021 Okawo
-# This code is licensed under MIT license (see LICENSE for details)
+# SPDX-License-Identifier: GPL-2.0-only
+
+# Copyright (C) Josh Miklos <josh.miklos@hobovrlabs.org>
 
 # why is this here again?
