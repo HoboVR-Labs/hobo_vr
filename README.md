@@ -56,4 +56,4 @@ Is always welcomed. Join the discussion over at Discord [here](https://discord.g
 > Also it is strongly encouraged to follow these [contribution guidelines](https://github.com/okawo80085/hobo_vr/blob/master/CONTRIBUTING.md)
 
 # License
-This project falls under the MIT license.
+This project falls under the GPL 2.0 license.

@@ -29,7 +29,7 @@ setup(
         "Intended Audience :: Manufacturing",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Telecommunications Industry",
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: OS Independent",
         "Programming Language :: C++",
         "Programming Language :: Python :: 3.7",
