@@ -26,6 +26,7 @@ static const char* const k_pch_Hmd_UserHead2EyeDepthMeters_Float = "UserHeadToEy
 
 enum EHoboVR_VendorEvents
 {
+	EHoboVR_EyeTrackingRequestHandle = 19995, // in vendor event range, event data is VREvent_Notification_t
 	EHoboVR_EyeTrackingHandle = 19996, // in vendor event range, event data is VREvent_SpatialAnchor_t
 	EHoboVR_EyeTrackingEnd = 19997, // in vendor event range, event data is VREvent_Notification_t, after this event EyeTrackingHandle will become invalid
 	EHoboVR_UduChange = 19998, // in the vendor event range, event data is VREvent_Notification_t
