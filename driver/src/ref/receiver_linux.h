@@ -33,22 +33,23 @@
 #define SOCKET char //needed for a type check to be possible
 #include "util.h"
 
+// #include "headsets.h"
+// #include "trackers.h"
+// #include "controllers.h"
+// #include "addons.h"
+#include "packets.h"
+
 namespace SockReceiver {
 
   class DriverReceiver {
   public:
     std::vector<std::string> m_vsDevice_list;
-    std::vector<int> m_viEps;
     int m_iExpectedMessageSize;
     std::string m_sIdMessage = "hello\n";
 
-    DriverReceiver(std::string expected_pose_struct, int port=6969, std::string addr="127.0.01") {
-      std::regex rgx("[htc]");
-      std::regex rgx2("[0-9]+");
-
-      m_viEps = split_to_number<int>(get_rgx_vector(expected_pose_struct, rgx2));
-      m_vsDevice_list = get_rgx_vector(expected_pose_struct, rgx);
-      m_iExpectedMessageSize = std::accumulate(m_viEps.begin(), m_viEps.end(), 0);
+    DriverReceiver(std::string udu_string, int port=6969, std::string addr="127.0.01") {
+      UpdateParams(udu_string);
+      m_bThreadReset = false;
 
       // placeholders
       int portno;
@@ -146,20 +147,31 @@ namespace SockReceiver {
     }
 
     void UpdateParams(std::string new_udu_string) {
-      std::regex rgx("[htc]");
-      std::regex rgx2("[0-9]+");
+      std::regex rgx("[htcg]");
 
-      m_viEps = split_to_number<int>(get_rgx_vector(new_udu_string, rgx2));
       m_vsDevice_list = get_rgx_vector(new_udu_string, rgx);
-      m_iExpectedMessageSize = std::accumulate(m_viEps.begin(), m_viEps.end(), 0);
+      int temp = 0;
+
+      for (std::string i : m_vsDevice_list) {
+        if (i == "h") {
+          temp += sizeof(HoboVR_HeadsetPose_t);
+        } else if (i == "t") {
+          temp += sizeof(HoboVR_TrackerPose_t);
+        } else if (i == "c") {
+          temp += sizeof(HoboVR_ControllerState_t);
+        } else if (i == "g") {
+          temp += sizeof(HoboVR_GazeState_t);
+        }
+      }
+
+      m_iExpectedMessageSize = temp;
 
       m_bThreadReset = true;
     }
 
-    void UpdateParams(std::vector<std::string> newDeviceList, std::vector<int> newEps) {
-      m_viEps = newEps;
+    void UpdateParams(std::vector<std::string> newDeviceList, uint32_t newPacketSize) {
       m_vsDevice_list = newDeviceList;
-      m_iExpectedMessageSize = std::accumulate(m_viEps.begin(), m_viEps.end(), 0);
+      m_iExpectedMessageSize = newPacketSize;
 
       m_bThreadReset = true;
     }
@@ -184,6 +196,7 @@ namespace SockReceiver {
         m_bThreadReset = false;
         int numbit = 0, msglen;
         int l_iTempMsgSize = m_iExpectedMessageSize*4*10;
+        // purpusefully alloc more memory then needed
         char* l_cpRecvBuffer = new char[l_iTempMsgSize];
 
       #ifdef DRIVERLOG_H

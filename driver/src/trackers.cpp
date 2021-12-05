@@ -78,3 +78,9 @@ void TrackerDriver::UpdateState(void* data) {
         );
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+uint32_t TrackerDriver::get_packet_size() {
+    return sizeof(HoboVR_TrackerPose_t);
+}

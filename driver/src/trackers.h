@@ -3,20 +3,13 @@
 
 #include <openvr_driver.h>
 #include "driverlog.h"
-#include "ref/hobovr_device_base.h"
+#include "hobovr_device_base.h"
+#include "packets.h"
 
 
 //-----------------------------------------------------------------------------
 // Purpose: tracker device implementation
 //-----------------------------------------------------------------------------
-
-struct HoboVR_TrackerPose_t {
-    float position[3];  // 3D vector
-    float orientation[4];  // quaternion
-    float velocity[3];  // 3D vector
-    float angular_velocity[3];  // 3D vector
-};
-
 
 class TrackerDriver : public hobovr::HobovrDevice<true, false> {
 public:
@@ -28,6 +21,8 @@ public:
     vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);
 
     void UpdateState(void* data) override;
+
+    uint32_t get_packet_size();
 };
 
 

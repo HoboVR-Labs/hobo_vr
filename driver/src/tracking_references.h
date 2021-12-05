@@ -6,15 +6,15 @@
 #include <openvr_driver.h>
 #include "driverlog.h"
 
-#include "ref/hobovr_device_base.h"
+#include "hobovr_device_base.h"
 
 #if defined(_WIN32)
 
-#include "ref/receiver_win.h"
+#include "receiver_win.h"
 
 #elif defined(__linux__)
 
-#include "ref/receiver_linux.h"
+#include "receiver_linux.h"
 #define _stricmp strcasecmp
 
 #endif

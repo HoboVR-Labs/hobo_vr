@@ -57,10 +57,10 @@ using namespace vr;
 
 #include "addons.h"
 
-#include "ref/hobovr_defines.h"
+#include "hobovr_defines.h"
 
-#include "ref/hobovr_device_base.h"
-#include "ref/hobovr_components.h"
+#include "hobovr_device_base.h"
+#include "hobovr_components.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: serverDriver
@@ -69,7 +69,8 @@ using namespace vr;
 enum EHobovrDeviceNodeTypes {
 	hmd = 0,
 	controller = 1,
-	tracker = 2
+	tracker = 2,
+	gaze_master = 3
 };
 
 
@@ -156,6 +157,7 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 	int counter_hmd = 0;
 	int counter_cntrlr = 0;
 	int counter_trkr = 0;
+	int gaze_master_counter = 0;
 	int controller_hs = 1;
 
 	// add new devices based on the udu parse 
@@ -207,6 +209,20 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 
 			counter_trkr++;
 
+		} else if (i == "g") {
+
+			GazeMasterDriver* temp = new GazeMasterDriver(
+				"g" + std::to_string(gaze_master_counter)
+			);
+
+			vr::VRServerDriverHost()->TrackedDeviceAdded(
+						temp->GetSerialNumber().c_str(),
+						vr::TrackedDeviceClass_GenericTracker,
+						temp);
+			m_vDevices.push_back({EHobovrDeviceNodeTypes::gaze_master, temp});
+
+			gaze_master_counter++;
+
 		} else {
 		  DriverLog("driver: unsupported device type: %s", i.c_str());
 		  return VRInitError_VendorSpecific_HmdFound_ConfigFailedSanityCheck;
@@ -247,18 +263,28 @@ void CServerDriver_hobovr::Cleanup() {
 		switch (i.type) {
 			case EHobovrDeviceNodeTypes::hmd: {
 				HeadsetDriver* device = (HeadsetDriver*)i.handle;
+				device->PowerOff();
 				free(device);
 				break;
 			}
 
 			case EHobovrDeviceNodeTypes::controller: {
 				ControllerDriver* device = (ControllerDriver*)i.handle;
+				device->PowerOff();
 				free(device);
 				break;
 			}
 
 			case EHobovrDeviceNodeTypes::tracker: {
 				TrackerDriver* device = (TrackerDriver*)i.handle;
+				device->PowerOff();
+				free(device);
+				break;
+			}
+
+			case EHobovrDeviceNodeTypes::gaze_master: {
+				GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
+				device->PowerOff();
 				free(device);
 				break;
 			}
@@ -284,6 +310,12 @@ void CServerDriver_hobovr::Cleanup() {
 				free(device);
 				break;
 			}
+
+			case EHobovrDeviceNodeTypes::gaze_master: {
+				GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
+				free(device);
+				break;
+			}
 		}
 	}
 
@@ -295,34 +327,42 @@ void CServerDriver_hobovr::Cleanup() {
 }
 
 void CServerDriver_hobovr::OnPacket(char* buff, int len) {
-  if (len == (m_pSocketComm->m_iExpectedMessageSize*4+3) && !m_bDeviceListSyncEvent)
+  if (len == (m_pSocketComm->m_iExpectedMessageSize+3) && !m_bDeviceListSyncEvent)
   {
-	float* temp= (float*)buff;
+	// float* temp= (float*)buff;
 	uint32_t buff_offset = 0;
 
 	for (size_t i=0; i < m_vDevices.size(); i++){
 		switch (m_vDevices[i].type) {
 			case EHobovrDeviceNodeTypes::hmd: {
 				HeadsetDriver* device = (HeadsetDriver*)m_vDevices[i].handle;
-				device->UpdateState(temp + buff_offset);
+				device->UpdateState(buff + buff_offset);
 
-				buff_offset += 13;
+				buff_offset += device->get_packet_size();
 				break;
 			}
 
 			case EHobovrDeviceNodeTypes::controller: {
 				ControllerDriver* device = (ControllerDriver*)m_vDevices[i].handle;
-				device->UpdateState(temp + buff_offset);
+				device->UpdateState(buff + buff_offset);
 
-				buff_offset += 22;
+				buff_offset += device->get_packet_size();
 				break;
 			}
 
 			case EHobovrDeviceNodeTypes::tracker: {
 				TrackerDriver* device = (TrackerDriver*)m_vDevices[i].handle;
-				device->UpdateState(temp + buff_offset);
+				device->UpdateState(buff + buff_offset);
 
-				buff_offset += 13;
+				buff_offset += device->get_packet_size();
+				break;
+			}
+
+			case EHobovrDeviceNodeTypes::gaze_master: {
+				GazeMasterDriver* device = (GazeMasterDriver*)m_vDevices[i].handle;
+				device->UpdateState(buff + buff_offset);
+
+				buff_offset += device->get_packet_size();
 				break;
 			}
 		}
@@ -330,9 +370,11 @@ void CServerDriver_hobovr::OnPacket(char* buff, int len) {
 	}
 
   } else {
-	DriverLog("driver: bad packet, expected %d, got %d. double check your udu settings\n", (m_pSocketComm->m_iExpectedMessageSize*4+3), len);
+	DriverLog("driver: posers are getting inored~\n\texpected %d bytes, got %d bytes~\n",
+		(m_pSocketComm->m_iExpectedMessageSize+3),
+		len
+	);
   }
-
 
 }
 
@@ -358,23 +400,27 @@ void CServerDriver_hobovr::RunFrame() {
 					device->ProcessEvent(vrEvent);
 					break;
 				}
+
+				case EHobovrDeviceNodeTypes::gaze_master: {
+					GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
+					device->ProcessEvent(vrEvent);
+					break;
+				}
 			}
 		}
 
 		if (vrEvent.eventType == EHoboVR_VendorEvents::EHoboVR_UduChange) {
 			DriverLog("udu change event");
-			std::vector<std::string> newD;
-			std::vector<int> newEps;
+			std::string newUduString = "";
 			auto uduBufferCopy = m_pSettManTref->m_vpUduChangeBuffer;
 
 			for (auto i : uduBufferCopy) {
 				DriverLog("pair: (%s, %d)", i.first.c_str(), i.second);
-				newD.push_back(i.first);
-				newEps.push_back(i.second);
+				newUduString += i.first + " ";
 			}
 
 			m_bDeviceListSyncEvent = true;
-			m_pSocketComm->UpdateParams(newD, newEps);
+			m_pSocketComm->UpdateParams(newUduString);
 			UpdateServerDeviceList();
 			m_bDeviceListSyncEvent = false;
 		}
@@ -401,6 +447,12 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 				device->PowerOff();
 				break;
 			}
+
+			case EHobovrDeviceNodeTypes::gaze_master: {
+				GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
+				device->PowerOff();
+				break;
+			}
 		}
 		m_vStandbyDevices.push_back(i);
 	}
@@ -412,6 +464,8 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 	int counter_hmd = 0;
 	int counter_cntrlr = 0;
 	int counter_trkr = 0;
+	int gaze_master_counter = 0;
+
 	int controller_hs = 1;
 
 	for (auto i : uduBufferCopy) {
@@ -427,6 +481,9 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 
 					case EHobovrDeviceNodeTypes::tracker:
 						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
+
+					case EHobovrDeviceNodeTypes::gaze_master:
+						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
 				}
 				return false;
 			};
@@ -462,6 +519,9 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 
 					case EHobovrDeviceNodeTypes::tracker:
 						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
+
+					case EHobovrDeviceNodeTypes::gaze_master:
+						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
 				}
 				return false;
 			};
@@ -502,6 +562,9 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 
 					case EHobovrDeviceNodeTypes::tracker:
 						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
+
+					case EHobovrDeviceNodeTypes::gaze_master:
+						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
 				}
 				return false;
 			};
@@ -524,6 +587,43 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 			}
 
 			counter_trkr++;
+		} else if (i.first == "g") {
+			auto target = "g" + std::to_string(gaze_master_counter);
+			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
+				switch (d.type) {
+					case EHobovrDeviceNodeTypes::hmd:
+						return ((HeadsetDriver*)d.handle)->GetSerialNumber() == target;
+
+					case EHobovrDeviceNodeTypes::controller:
+						return ((ControllerDriver*)d.handle)->GetSerialNumber() == target;
+
+					case EHobovrDeviceNodeTypes::tracker:
+						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
+
+					case EHobovrDeviceNodeTypes::gaze_master:
+						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
+				}
+				return false;
+			};
+
+			auto res = std::find_if(m_vStandbyDevices.begin(), m_vStandbyDevices.end(), key);
+			if (res != m_vStandbyDevices.end()) {
+				((GazeMasterDriver*)((*res).handle))->PowerOn();
+				m_vDevices.push_back(*res);
+				m_vStandbyDevices.erase(res);
+			}
+
+			else {
+				GazeMasterDriver* temp = new GazeMasterDriver("g" + std::to_string(gaze_master_counter));
+
+				vr::VRServerDriverHost()->TrackedDeviceAdded(
+					temp->GetSerialNumber().c_str(),
+					vr::TrackedDeviceClass_GenericTracker,
+					temp
+				);
+				m_vDevices.push_back({EHobovrDeviceNodeTypes::gaze_master, temp});
+
+			}
 		}
 	}
 
@@ -532,7 +632,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 
 void CServerDriver_hobovr::SlowUpdateThread() {
 	DriverLog("driver: slow update thread started\n");
-	int h = 0;
+
 	while (m_bSlowUpdateThreadIsAlive){
 		for (auto &i : m_vDevices){
 			switch (i.type) {
@@ -556,15 +656,20 @@ void CServerDriver_hobovr::SlowUpdateThread() {
 					device->CheckForUpdates();
 					break;
 				}
+
+				case EHobovrDeviceNodeTypes::gaze_master: {
+					GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
+					device->UpdateDeviceBatteryCharge();
+					device->CheckForUpdates();
+					break;
+				}
 			}
 		}
 
 		std::this_thread::sleep_for(std::chrono::seconds(5));
 
-		if (!h) {
-			m_pSettManTref->UpdatePose();
-			h = 1;
-		}
+		m_pSettManTref->UpdatePose();
+
 	}
 	DriverLog("driver: slow update thread closed\n");
 	m_bSlowUpdateThreadIsAlive = false;

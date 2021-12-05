@@ -4,18 +4,12 @@
 
 #include <openvr_driver.h>
 #include "driverlog.h"
-#include "ref/hobovr_device_base.h"
+#include "hobovr_device_base.h"
+#include "packets.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: hmd device implementation
 //-----------------------------------------------------------------------------
-
-struct HoboVR_HeadsetPose_t {
-    float position[3];  // 3D vector
-    float orientation[4];  // quaternion
-    float velocity[3];  // 3D vector
-    float angular_velocity[3];  // 3D vector
-};
 
 class HeadsetDriver : public hobovr::HobovrDevice<false, false> {
 public:
@@ -26,6 +20,8 @@ public:
     void UpdateSectionSettings();
 
     void UpdateState(void* data) override;
+
+    uint32_t get_packet_size();
 
 private:
     float m_flSecondsFromVsyncToPhotons;

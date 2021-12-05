@@ -75,6 +75,8 @@ void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
                     p.first = "c";
                 else if (dt == 2)
                     p.first = "t";
+                else if (dt == 3)
+                    p.first = "g";
 
                 temp.push_back(p);
             }

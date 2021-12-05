@@ -390,3 +390,9 @@ void ControllerDriver::UpdateState(void* data) {
     );
 
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+uint32_t ControllerDriver::get_packet_size() {
+    return sizeof(HoboVR_ControllerState_t);
+}
