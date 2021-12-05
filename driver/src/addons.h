@@ -4,40 +4,44 @@
 
 #include <openvr_driver.h>
 #include "driverlog.h"
-#include "ref/hobovr_device_base.h"
+#include "hobovr_device_base.h"
+#include "packets.h"
+
+#include <shoom.h>
+
+#include <thread>
 
 //-----------------------------------------------------------------------------
 // Purpose: eye tracking addon device, code name: Gaze Master
 //-----------------------------------------------------------------------------
 
-enum EGazeStatus {
-    EGazeStatus_invalid = 0,
-    EGazeStatus_active = 1,
-
-    EGazeStatus_max
-};
-
-struct Gaze_t {
-    uint32_t status; // EGazeStatus enum
-
-    float gaze_direction_r[2]; // vec 2
-    float gaze_direction_l[2]; // vec 2
-    float gaze_orientation_r[4]; // quat
-    float gaze_orientation_l[4]; // quat
-    // maybe something else?
-};
-
 class GazeMasterDriver: public hobovr::HobovrDevice<false, false> {
 public:
     GazeMasterDriver(std::string myserial);
 
-    void ProcessEvent(const vr::VREvent_t &vrEvent);
+    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);
 
     void UpdateState(void* data) override;
 
-public:
+    void PowerOff();
+    void PowerOn();
 
-    Gaze_t m_Gaze; // public member for sharing eye tracking state
+
+    uint32_t get_packet_size();
+
+private:
+
+    void SlowUpdateThread();
+    static void SlowUpdateThreadEnter(GazeMasterDriver* self);
+
+private:
+
+    std::shared_ptr<shoom::Shm> m_pSharedMemory;
+
+    bool m_bSlowUpdateThreadIsAlive;
+    bool m_bPause;
+    std::thread* m_ptSlowUpdateThread;
+
 };
 
 
