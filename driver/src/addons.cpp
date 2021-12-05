@@ -37,7 +37,7 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
     DriverLog("GazeMaster: success!");
 
     // start with invalid state
-    ((HoboVR_GazeState_t*)m_pSharedMemory-Data())->status = EGazeStatus_invalid;
+    ((HoboVR_GazeState_t*)m_pSharedMemory->Data())->status = EGazeStatus_invalid;
 
     m_bSlowUpdateThreadIsAlive = true;
     m_ptSlowUpdateThread = new std::thread(SlowUpdateThreadEnter, this);
