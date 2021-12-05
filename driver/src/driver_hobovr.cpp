@@ -15,10 +15,10 @@
 #include <vector>
 
 #if defined(_WINDOWS)
-	#include "ref/receiver_win.h"
+	#include "receiver_win.h"
 
 #elif defined(LINUX)
-	#include "ref/receiver_linux.h"
+	#include "receiver_linux.h"
 	#define _stricmp strcasecmp
 
 #endif
