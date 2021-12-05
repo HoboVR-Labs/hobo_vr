@@ -1,3 +1,6 @@
 [submodule "driver/openvr"]
 	path = driver/openvr
 	url = https://github.com/okawo80085/openvr.git
+[submodule "driver/shroom"]
+	path = driver/shroom
+	url = https://github.com/HoboVR-Labs/shroom.git
