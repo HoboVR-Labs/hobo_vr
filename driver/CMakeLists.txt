@@ -42,7 +42,7 @@ option(INSTALL_X86_DRIVER "Overrides the platform architecture on install, will 
 
 # Check if 32 or 64 bit system or a 32 bit override.
 set(SIZEOF_VOIDP ${CMAKE_SIZEOF_VOID_P})
-if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT INSTALL_32BIT)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT INSTALL_X86_DRIVER)
   set(HOBOVR_PROCESSOR_ARCH "64")
 else()
   set(HOBOVR_PROCESSOR_ARCH "32")
@@ -63,7 +63,7 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(PLATFORM_NAME "win")
-  add_definitions(-D_WIN32)
+  add_definitions(-D_WINDOWS)
 
   # Binaries path for thirdparties are not generics so we try to guess their suffixes.
   set(WINDOWS_PATH_SUFFIXES win${HOBOVR_PROCESSOR_ARCH} Win${HOBOVR_PROCESSOR_ARCH} x${HOBOVR_PROCESSOR_ARCH})
@@ -102,10 +102,25 @@ set(OPENVR_INCLUDE_DIR ${hobo_vr_SOURCE_DIR}/openvr/headers)
 message(NOTICE "openvr libs: ${OPENVR_LIBRARIES}")
 message(NOTICE "openvr headers: ${OPENVR_INCLUDE_DIR}")
 
+# shroom dep
+set(SHROOM_ROOT_DIR ${hobo_vr_SOURCE_DIR}/shroom)
+set(SHROOM_INCLUDE_DIR ${SHROOM_ROOT_DIR}/include)
+
+if(PLATFORM_NAME MATCHES "linux")
+  set(SHROOM_SRC ${SHROOM_ROOT_DIR}/src/shoom_unix_darwin.cc)
+
+elseif(PLATFORM_NAME MATCHES "win")
+  set(SHROOM_SRC ${SHROOM_ROOT_DIR}/src/shoom_win32.cc)
+
+endif()
+
+
 # actual build instructions
 include_directories(
   ${OPENVR_INCLUDE_DIR}
+  ${SHROOM_INCLUDE_DIR}
   "src/ref/"
+  "src/"
 )
 
 file(GLOB driver_hobovr_src
@@ -116,6 +131,7 @@ file(GLOB driver_hobovr_src
 ) # grab all source files
 
 add_library(${TARGET_NAME} SHARED
+  ${SHROOM_SRC}
   ${driver_hobovr_src}
 )
 

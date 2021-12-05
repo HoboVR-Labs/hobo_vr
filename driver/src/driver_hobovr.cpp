@@ -14,17 +14,17 @@
 #include <thread>
 #include <vector>
 
-#if defined(_WIN32)
-#include "ref/receiver_win.h"
+#if defined(_WINDOWS)
+	#include "ref/receiver_win.h"
 
-#elif defined(__linux__)
-#include "ref/receiver_linux.h"
-#define _stricmp strcasecmp
+#elif defined(LINUX)
+	#include "ref/receiver_linux.h"
+	#define _stricmp strcasecmp
 
 #endif
 
 #if defined(_WINDOWS)
-#include <windows.h>
+	#include <windows.h>
 #endif
 
 
@@ -38,14 +38,14 @@
 
 using namespace vr;
 
-#if defined(_WIN32)
-#define HMD_DLL_EXPORT extern "C" __declspec(dllexport)
-#define HMD_DLL_IMPORT extern "C" __declspec(dllimport)
-#elif defined(__GNUC__) || defined(COMPILER_GCC) || defined(__APPLE__)
-#define HMD_DLL_EXPORT extern "C" __attribute__((visibility("default")))
-#define HMD_DLL_IMPORT extern "C"
+#if defined(_WINDOWS)
+	#define HMD_DLL_EXPORT extern "C" __declspec(dllexport)
+	#define HMD_DLL_IMPORT extern "C" __declspec(dllimport)
+#elif defined(LINUX)
+	#define HMD_DLL_EXPORT extern "C" __attribute__((visibility("default")))
+	#define HMD_DLL_IMPORT extern "C"
 #else
-#error "Unsupported Platform."
+	#error "Unsupported Platform."
 #endif
 
 // devices
