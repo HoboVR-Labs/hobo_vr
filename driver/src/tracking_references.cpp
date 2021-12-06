@@ -35,6 +35,21 @@ HobovrTrackingRef_SettManager::HobovrTrackingRef_SettManager(
     }
     m_pSocketComm->setCallback(this);
 
+    m_Pose.poseTimeOffset = 0;
+    m_Pose.result = vr::TrackingResult_Running_OK;
+    m_Pose.poseIsValid = true;
+    m_Pose.deviceIsConnected = true;
+    m_Pose.poseTimeOffset = 0;
+    m_Pose.qWorldFromDriverRotation = {1, 0, 0, 0};
+    m_Pose.qDriverFromHeadRotation = {1, 0, 0, 0};
+    m_Pose.qRotation = {1, 0, 0, 0};
+    m_Pose.vecPosition[0] = 0.01;
+    m_Pose.vecPosition[1] = 0;
+    m_Pose.vecPosition[2] = 0;
+    m_Pose.willDriftInYaw = false;
+    m_Pose.deviceIsConnected = true;
+    m_Pose.poseIsValid = true;
+    m_Pose.shouldApplyHeadModel = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -98,31 +113,16 @@ void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
         }
 
         case Emsg_setSelfPose: {
-            vr::DriverPose_t pose;
-            pose.poseTimeOffset = 0;
-            pose.result = vr::TrackingResult_Running_OK;
-            pose.poseIsValid = true;
-            pose.deviceIsConnected = true;
-            pose.poseTimeOffset = 0;
-            pose.qWorldFromDriverRotation = {1, 0, 0, 0};
-            pose.qDriverFromHeadRotation = {1, 0, 0, 0};
-            pose.qRotation = {1, 0, 0, 0};
-            pose.vecPosition[0] = 0.01;
-            pose.vecPosition[1] = 0;
-            pose.vecPosition[2] = 0;
-            pose.willDriftInYaw = false;
-            pose.deviceIsConnected = true;
-            pose.poseIsValid = true;
-            pose.shouldApplyHeadModel = false;
 
-            pose.vecPosition[0] = (float)data[1]/(float)data[2];
-            pose.vecPosition[1] = (float)data[3]/(float)data[4];
-            pose.vecPosition[2] = (float)data[5]/(float)data[6];
+            m_Pose.vecPosition[0] = (float)data[1]/(float)data[2];
+            m_Pose.vecPosition[1] = (float)data[3]/(float)data[4];
+            m_Pose.vecPosition[2] = (float)data[5]/(float)data[6];
+
             if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
                 vr::VRServerDriverHost()->TrackedDevicePoseUpdated(
                     m_unObjectId,
-                    pose,
-                    sizeof(pose)
+                    m_Pose,
+                    sizeof(m_Pose)
                 );
             }
 
