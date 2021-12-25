@@ -71,18 +71,18 @@ struct HoboVR_ControllerState_t {
     float velocity[3];  // 3D vector
     float angular_velocity[3];  // 3D vector
 
-    float inputs[9];
-    // vive wand style inputs
+    float scalar_inputs[3];
+    // scalar_inputs[0] - trigger value, one sided normalized  scalar axis
+    // scalar_inputs[1] - trackpad x axis, normalized two sided scalar axis
+    // scalar_inputs[2] - trackpad y axis, normalized two sided scalar axis
 
-    // inputs[0] - grip button, recast as bool
-    // inputs[1] - SteamVR system button, recast as bool
-    // inputs[2] - app menu button, recast as bool
-    // inputs[3] - trackpad click button, recast as bool
-    // inputs[4] - trigger value, one sided normalized  scalar axis
-    // inputs[5] - trackpad x axis, normalized two sided scalar axis
-    // inputs[6] - trackpad y axis, normalized two sided scalar axis
-    // inputs[7] - trackpad touch signal, recast as bool
-    // inputs[8] - trigger click button, recast as bool
+    uint8_t inputs_mask: 6; // bit field of size 6
+    // (bool)(inputs_mask & 0b000001) - grip button
+    // (bool)(inputs_mask & 0b000010) - SteamVR system button
+    // (bool)(inputs_mask & 0b000100) - app menu button
+    // (bool)(inputs_mask & 0b001000) - trackpad click button
+    // (bool)(inputs_mask & 0b010000) - trackpad touch signal
+    // (bool)(inputs_mask & 0b100000) - trigger click button
 };
 
 ////////////////////////////////////////////////////////////////////////////////

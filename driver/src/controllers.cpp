@@ -336,56 +336,56 @@ void ControllerDriver::UpdateState(void* data) {
 
     ivrinput_cache->UpdateBooleanComponent(
         m_compGrip,
-        (bool)(packet->inputs[0]),
+        (bool)(packet->inputs_mask & 0b000001),
         (double)m_fPoseTimeOffset
     );
 
     ivrinput_cache->UpdateBooleanComponent(
         m_compSystem,
-        (bool)(packet->inputs[1]),
+        (bool)(packet->inputs_mask & 0b000010),
         (double)m_fPoseTimeOffset
     );
 
     ivrinput_cache->UpdateBooleanComponent(
         m_compAppMenu,
-        (bool)(packet->inputs[2]),
+        (bool)(packet->inputs_mask & 0b000100),
         (double)m_fPoseTimeOffset
     );
 
     ivrinput_cache->UpdateBooleanComponent(
         m_compTrackpadClick,
-        (bool)(packet->inputs[3]),
+        (bool)(packet->inputs_mask & 0b001000),
         (double)m_fPoseTimeOffset
     );
 
     ivrinput_cache->UpdateScalarComponent(
         m_compTrigger,
-        packet->inputs[4],
+        packet->scalar_inputs[0],
         (double)m_fPoseTimeOffset
     );
 
     ivrinput_cache->UpdateScalarComponent(
         m_compTrackpadX,
-        packet->inputs[5],
+        packet->scalar_inputs[1],
         (double)m_fPoseTimeOffset
     );
 
     ivrinput_cache->UpdateScalarComponent(
         m_compTrackpadY,
-        packet->inputs[6],
+        packet->scalar_inputs[2],
         (double)m_fPoseTimeOffset
     );
 
 
     ivrinput_cache->UpdateBooleanComponent(
         m_compTrackpadTouch,
-        (bool)(packet->inputs[7]),
+        (bool)(packet->inputs_mask & 0b010000),
         (double)m_fPoseTimeOffset
     );
 
     ivrinput_cache->UpdateBooleanComponent(
         m_compTriggerClick,
-        (bool)(packet->inputs[8]),
+        (bool)(packet->inputs_mask & 0b100000),
         (double)m_fPoseTimeOffset
     );
 
