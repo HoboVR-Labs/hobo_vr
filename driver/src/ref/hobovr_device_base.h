@@ -8,6 +8,8 @@
 #define VR_DEVICE_BASE_H
 
 #include "hobovr_components.h"
+#include "packets.h"
+#include "receiver.h"
 
 namespace hobovr {
 	static const char *const k_pch_Hobovr_PoseTimeOffset_Float = "PoseTimeOffset";
@@ -66,9 +68,11 @@ namespace hobovr {
 	template<bool UseHaptics, bool HasBattery>
 	class HobovrDevice: public vr::ITrackedDeviceServerDriver {
 	public:
-		HobovrDevice(std::string myserial, std::string deviceBreed,
-		const std::shared_ptr<SockReceiver::DriverReceiver> commSocket=nullptr): m_pBrodcastSocket(commSocket),
-				m_sSerialNumber(myserial) {
+		HobovrDevice(
+			std::string myserial,
+			std::string deviceBreed,
+			const std::shared_ptr<recvv::DriverReceiver> commSocket=nullptr
+		): m_pBrodcastSocket(commSocket), m_sSerialNumber(myserial) {
 
 			m_unObjectId = vr::k_unTrackedDeviceIndexInvalid;
 			m_ulPropertyContainer = vr::k_ulInvalidPropertyContainer;
@@ -298,10 +302,23 @@ namespace hobovr {
 				if (vrEvent.eventType == vr::VREvent_Input_HapticVibration) {
 					if (vrEvent.data.hapticVibration.componentHandle == m_compHaptic) {
 							// haptic!
-							m_pBrodcastSocket->send2((m_sSerialNumber + ',' +
-							std::to_string(vrEvent.data.hapticVibration.fDurationSeconds) + ',' +
-							std::to_string(vrEvent.data.hapticVibration.fFrequency) + ',' +
-							std::to_string(vrEvent.data.hapticVibration.fAmplitude) + "\n").c_str());
+							HoboVR_HapticResponse_t msg;
+							// copy the device name
+							memcpy(
+								msg.name,
+								m_sSerialNumber.c_str(),
+// a long ass expression of terribleness, but its to avoid a memory leak fast
+m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumber.size() < 10)
+							);
+
+							msg.duration_seconds = vrEvent.data.hapticVibration.fDurationSeconds;
+							msg.frequency = vrEvent.data.hapticVibration.fFrequency;
+							msg.amplitude = vrEvent.data.hapticVibration.fAmplitude;
+
+							m_pBrodcastSocket->Send(
+								&msg,
+								sizeof(msg)
+							);
 					}
 				}
 			}
@@ -311,30 +328,30 @@ namespace hobovr {
 					// handle component settings update
 					for (auto &i : m_vComponents) {
 							switch(i.type){
-							case EHobovrCompType::EHobovrComp_ExtendedDisplay:
-								((HobovrExtendedDisplayComponent*)i.ptr_handle)->ReloadSectionSettings();
-								break;
+								case EHobovrComp_ExtendedDisplay:
+									((HobovrExtendedDisplayComponent*)i.ptr_handle)->ReloadSectionSettings();
+									break;
 
-							case EHobovrCompType::EHobovrComp_DriverDirectMode:
-								((HobovrDriverDirectModeComponent*)i.ptr_handle)->ReloadSectionSettings();
-								break;
+								case EHobovrComp_DriverDirectMode:
+									((HobovrDriverDirectModeComponent*)i.ptr_handle)->ReloadSectionSettings();
+									break;
 
-							case EHobovrCompType::EHobovrComp_Camera:
-								((HobovrCameraComponent*)i.ptr_handle)->ReloadSectionSettings();
-								break;
+								case EHobovrComp_Camera:
+									((HobovrCameraComponent*)i.ptr_handle)->ReloadSectionSettings();
+									break;
 
-							case EHobovrCompType::EHobovrComp_VirtualDisplay:
-								((HobovrVirtualDisplayComponent*)i.ptr_handle)->ReloadSectionSettings();
-								break;
+								case EHobovrComp_VirtualDisplay:
+									((HobovrVirtualDisplayComponent*)i.ptr_handle)->ReloadSectionSettings();
+									break;
 
 
-							default:
-								DriverLog(
-									"%s: invalid display component encountered on event update",
-									m_sSerialNumber.c_str()
-								);
+								default:
+									DriverLog(
+										"%s: invalid display component encountered on event update",
+										m_sSerialNumber.c_str()
+									);
 
-						}
+							}
 					}
 					// handle device settings update
 					UpdateSectionSettings();
@@ -408,7 +425,7 @@ namespace hobovr {
 		float m_fPoseTimeOffset; // time offset of the pose, set trough the config
 
 		// hobovr stuff
-		std::shared_ptr<SockReceiver::DriverReceiver> m_pBrodcastSocket;
+		std::shared_ptr<recvv::DriverReceiver> m_pBrodcastSocket;
 
 	private:
 		// openvr api stuff that i don't trust you to touch

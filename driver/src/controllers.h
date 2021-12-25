@@ -7,16 +7,8 @@
 #include "hobovr_device_base.h"
 #include "packets.h"
 
-#if defined(_WIN32)
+#include "receiver.h"
 
-#include "receiver_win.h"
-
-#elif defined(__linux__)
-
-#include "receiver_linux.h"
-#define _stricmp strcasecmp
-
-#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: controller device implementation
@@ -28,7 +20,7 @@ public:
     ControllerDriver(
         bool side,
         std::string myserial,
-        const std::shared_ptr<SockReceiver::DriverReceiver> ReceiverObj
+        const std::shared_ptr<recvv::DriverReceiver> ReceiverObj
     );
 
     vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);

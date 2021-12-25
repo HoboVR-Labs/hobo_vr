@@ -14,14 +14,7 @@
 #include <thread>
 #include <vector>
 
-#if defined(_WINDOWS)
-	#include "receiver_win.h"
-
-#elif defined(LINUX)
-	#include "receiver_linux.h"
-	#define _stricmp strcasecmp
-
-#endif
+#include "receiver.h"
 
 #if defined(_WINDOWS)
 	#include <windows.h>
@@ -80,7 +73,7 @@ struct HobovrDeviceStorageNode_t {
 };
 
 
-class CServerDriver_hobovr : public IServerTrackedDeviceProvider, public SockReceiver::Callback {
+class CServerDriver_hobovr : public IServerTrackedDeviceProvider, public recvv::Callback {
 public:
 	CServerDriver_hobovr() {}
 	virtual EVRInitError Init(vr::IVRDriverContext *pDriverContext);
@@ -107,7 +100,7 @@ private:
 	std::vector<HobovrDeviceStorageNode_t> m_vDevices;
 	std::vector<HobovrDeviceStorageNode_t> m_vStandbyDevices;
 
-	std::shared_ptr<SockReceiver::DriverReceiver> m_pSocketComm;
+	std::shared_ptr<recvv::DriverReceiver> m_pSocketComm;
 	std::shared_ptr<HobovrTrackingRef_SettManager> m_pSettManTref;
 
 	bool m_bDeviceListSyncEvent = false;
@@ -141,15 +134,13 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 	uduThing = buf;
 	DriverLog("driver: udu settings: '%s'\n", uduThing.c_str());
 
-	// udu setting parse is done by SockReceiver
+	// udu setting parse is done by recvv
 	try{
-		m_pSocketComm = std::make_shared<SockReceiver::DriverReceiver>(uduThing);
-		m_pSocketComm->start();
+		m_pSocketComm = std::make_shared<recvv::DriverReceiver>(uduThing);
+		m_pSocketComm->Start();
 
-	} catch (...){
-		DriverLog("m_pSocketComm broke on create or broke on start, either way you're fucked\n");
-		DriverLog("check if the server is running...\n");
-		DriverLog("... 10061 means \"couldn't connect to server\"...(^_^;)..\n");
+	} catch (const std::exception& e){
+		DriverLog("failed to start receiver: %s", e.what());
 		return VRInitError_Init_WebServerFailed;
 
 	}
@@ -161,7 +152,7 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 	int controller_hs = 1;
 
 	// add new devices based on the udu parse 
-	for (std::string i:m_pSocketComm->m_vsDevice_list) {
+	for (std::string i : m_pSocketComm->GetDevices()) {
 		if (i == "h") {
 			HeadsetDriver* temp = new HeadsetDriver(
 				"h" + std::to_string(counter_hmd)
@@ -175,7 +166,7 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 
 			m_vDevices.push_back({EHobovrDeviceNodeTypes::hmd, temp});
 
-		  counter_hmd++;
+			counter_hmd++;
 
 		} else if (i == "c") {
 			ControllerDriver* temp = new ControllerDriver(
@@ -224,8 +215,8 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 			gaze_master_counter++;
 
 		} else {
-		  DriverLog("driver: unsupported device type: %s", i.c_str());
-		  return VRInitError_VendorSpecific_HmdFound_ConfigFailedSanityCheck;
+			DriverLog("driver: unsupported device type: %s", i.c_str());
+			return VRInitError_VendorSpecific_HmdFound_ConfigFailedSanityCheck;
 		}
 	}
 
@@ -255,7 +246,7 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 
 void CServerDriver_hobovr::Cleanup() {
 	DriverLog("driver cleanup called");
-	m_pSocketComm->stop();
+	m_pSocketComm->Stop();
 	m_bSlowUpdateThreadIsAlive = false;
 	m_ptSlowUpdateThread->join();
 
@@ -327,54 +318,68 @@ void CServerDriver_hobovr::Cleanup() {
 }
 
 void CServerDriver_hobovr::OnPacket(char* buff, int len) {
-  if (len == (m_pSocketComm->m_iExpectedMessageSize+3) && !m_bDeviceListSyncEvent)
-  {
-	// float* temp= (float*)buff;
-	uint32_t buff_offset = 0;
+	if ((size_t)len == (m_pSocketComm->GetBufferSize()+3) && !m_bDeviceListSyncEvent) {
+		uint32_t buff_offset = 0;
 
-	for (size_t i=0; i < m_vDevices.size(); i++){
-		switch (m_vDevices[i].type) {
-			case EHobovrDeviceNodeTypes::hmd: {
-				HeadsetDriver* device = (HeadsetDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff + buff_offset);
+		for (size_t i=0; i < m_vDevices.size(); i++){
+			switch (m_vDevices[i].type) {
+				case EHobovrDeviceNodeTypes::hmd: {
+					HeadsetDriver* device = (HeadsetDriver*)m_vDevices[i].handle;
+					device->UpdateState(buff + buff_offset);
 
-				buff_offset += device->get_packet_size();
-				break;
+					buff_offset += device->get_packet_size();
+					break;
+				}
+
+				case EHobovrDeviceNodeTypes::controller: {
+					ControllerDriver* device = (ControllerDriver*)m_vDevices[i].handle;
+					device->UpdateState(buff + buff_offset);
+
+					buff_offset += device->get_packet_size();
+					break;
+				}
+
+				case EHobovrDeviceNodeTypes::tracker: {
+					TrackerDriver* device = (TrackerDriver*)m_vDevices[i].handle;
+					device->UpdateState(buff + buff_offset);
+
+					buff_offset += device->get_packet_size();
+					break;
+				}
+
+				case EHobovrDeviceNodeTypes::gaze_master: {
+					GazeMasterDriver* device = (GazeMasterDriver*)m_vDevices[i].handle;
+					device->UpdateState(buff + buff_offset);
+
+					buff_offset += device->get_packet_size();
+					break;
+				}
 			}
 
-			case EHobovrDeviceNodeTypes::controller: {
-				ControllerDriver* device = (ControllerDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff + buff_offset);
-
-				buff_offset += device->get_packet_size();
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::tracker: {
-				TrackerDriver* device = (TrackerDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff + buff_offset);
-
-				buff_offset += device->get_packet_size();
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::gaze_master: {
-				GazeMasterDriver* device = (GazeMasterDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff + buff_offset);
-
-				buff_offset += device->get_packet_size();
-				break;
-			}
 		}
 
-	}
+	} else {
+		// tell the poser it fucked up
+		// TODO: make different responses for different fuck ups...
+		// 							and detect different fuck ups
+		HoboVR_RespBufSize_t expected_size = {(uint32_t)m_pSocketComm->GetBufferSize()};
 
-  } else {
-	DriverLog("driver: posers are getting inored~\n\texpected %d bytes, got %d bytes~\n",
-		(m_pSocketComm->m_iExpectedMessageSize+3),
-		len
-	);
-  }
+		HoboVR_PoserResp_t resp{
+			EPoserRespType_badDeviceList,
+			(HoboVR_RespData_t&)expected_size
+		};
+
+		m_pSocketComm->Send(
+			&resp,
+			sizeof(resp)
+		);
+		// GOD FUCKING FINALLY
+
+		DriverLog("driver: posers are getting inored~\n\texpected %d bytes, got %d bytes~\n",
+			(m_pSocketComm->GetBufferSize()+3),
+			len
+		);
+	}
 
 }
 
@@ -415,8 +420,8 @@ void CServerDriver_hobovr::RunFrame() {
 			auto uduBufferCopy = m_pSettManTref->m_vpUduChangeBuffer;
 
 			for (auto i : uduBufferCopy) {
-				DriverLog("pair: (%s, %d)", i.first.c_str(), i.second);
-				newUduString += i.first + " ";
+				DriverLog("device type: %s", i.c_str());
+				newUduString += i;
 			}
 
 			m_bDeviceListSyncEvent = true;
@@ -469,7 +474,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 	int controller_hs = 1;
 
 	for (auto i : uduBufferCopy) {
-		if (i.first == "h") {
+		if (i == "h") {
 			auto target = "h" + std::to_string(counter_hmd);
 			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
 				switch (d.type) {
@@ -507,7 +512,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 			}
 
 			counter_hmd++;
-		} else if (i.first == "c") {
+		} else if (i == "c") {
 			auto target = "c" + std::to_string(counter_cntrlr);
 			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
 				switch (d.type) {
@@ -550,7 +555,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 			controller_hs = (controller_hs) ? 0 : 1;
 			counter_cntrlr++;
 
-		} else if (i.first == "t") {
+		} else if (i == "t") {
 			auto target = "t" + std::to_string(counter_trkr);
 			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
 				switch (d.type) {
@@ -587,7 +592,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 			}
 
 			counter_trkr++;
-		} else if (i.first == "g") {
+		} else if (i == "g") {
 			auto target = "g" + std::to_string(gaze_master_counter);
 			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
 				switch (d.type) {
@@ -693,5 +698,5 @@ HMD_DLL_EXPORT void *HmdDriverFactory(
 	if (pReturnCode)
 		*pReturnCode = VRInitError_Init_InterfaceNotFound;
 
-  return NULL;
+	return NULL;
 }

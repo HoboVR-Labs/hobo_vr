@@ -8,16 +8,7 @@
 
 #include "hobovr_device_base.h"
 
-#if defined(_WIN32)
-
-#include "receiver_win.h"
-
-#elif defined(__linux__)
-
-#include "receiver_linux.h"
-#define _stricmp strcasecmp
-
-#endif
+#include "receiver.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: settings manager using a tracking reference, this is meant to be
@@ -43,9 +34,9 @@ enum HobovrTrackingRef_Msg_type
 
 // static std::vector<std::pair<std::string, int>> g_vpUduChangeBuffer;
 
-class HobovrTrackingRef_SettManager: public vr::ITrackedDeviceServerDriver, public SockReceiver::Callback {
+class HobovrTrackingRef_SettManager: public vr::ITrackedDeviceServerDriver, public recvv::Callback {
 private:
-  std::shared_ptr<SockReceiver::DriverReceiver> m_pSocketComm;
+  std::shared_ptr<recvv::DriverReceiver> m_pSocketComm;
 
 public:
     HobovrTrackingRef_SettManager(std::string myserial);
@@ -73,7 +64,7 @@ public:
     void UpdatePose();
 
 public:
-    std::vector<std::pair<std::string, int>> m_vpUduChangeBuffer; // for passing udu data
+    std::vector<std::string> m_vpUduChangeBuffer; // for passing udu data
 
 private:
   // openvr api stuff

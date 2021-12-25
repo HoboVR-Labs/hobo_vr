@@ -7,13 +7,20 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#ifndef SOCKET
+#define SOCKET char
+#endif // #ifndef SOCKET
+
 #include <vector>
 #include <iterator>
 #include <regex>
 #include <string>
 #include <sstream>
 
-namespace SockReceiver {
+#include <sys/types.h>
+#include <sys/socket.h>
+
+namespace recvv {
   //can receive packets ending with \t\r\n using either winsock2 or unix sockets
   template <typename T>
   inline int receive_till_zero( T sock, char* buf, int& numbytes, int max_packet_size )
@@ -30,18 +37,11 @@ namespace SockReceiver {
           return i + 3; // return length of message
         }
       }
-      if constexpr(std::is_same<T, SOCKET>::value)
-      {
+
+      if constexpr(std::is_same<T, SOCKET>::value) {
         n = recv( sock, buf + numbytes, max_packet_size - numbytes, 0 );
-      }
-      else if constexpr(std::is_same<T, int>::value)
-      {
+      } else if constexpr(std::is_same<T, int>::value) {
         n = read( sock, buf + numbytes, max_packet_size - numbytes);
-      } else {
-        #ifdef DRIVERLOG_H
-        DriverLog("that is not a socket you retard");
-        #endif
-        throw std::runtime_error("bruh, thats not a raw socket");
       }
 
       if( n == -1 ) {

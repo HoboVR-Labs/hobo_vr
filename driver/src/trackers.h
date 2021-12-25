@@ -15,7 +15,7 @@ class TrackerDriver : public hobovr::HobovrDevice<true, false> {
 public:
     TrackerDriver(
         std::string myserial,
-        const std::shared_ptr<SockReceiver::DriverReceiver> ReceiverObj
+        const std::shared_ptr<recvv::DriverReceiver> ReceiverObj
     );
 
     vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);

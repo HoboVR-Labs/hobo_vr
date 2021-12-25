@@ -4,6 +4,44 @@
 #pragma pack(push, 1)
 
 ////////////////////////////////////////////////////////////////////////////////
+// Common structs
+////////////////////////////////////////////////////////////////////////////////
+
+
+struct HoboVR_HapticResponse_t {
+    char name[10]; // device name: "%c%d", device_type, id
+    double duration_seconds;
+    double frequency;
+    double amplitude;
+};
+
+enum EHoboVR_PoserRespType {
+    EPoserRespType_invalid = 0,
+
+    EPoserRespType_badDeviceList = 10, // poser fucked up, data is HoboVR_RespBufSize_t
+
+    EPoserRespType_max
+};
+
+struct HoboVR_RespBufSize_t {
+    uint32_t size; // number of bytes allocated
+};
+
+struct HoboVR_RespReserved_t {
+    uint8_t parts[64]; // we get 32 reserved bytes
+};
+
+typedef union {
+    HoboVR_RespReserved_t reserved;
+    HoboVR_RespBufSize_t buf_size;
+} HoboVR_RespData_t;
+
+struct HoboVR_PoserResp_t {
+    uint32_t type; // EHoboVR_PoserRespType enum
+    HoboVR_RespData_t data;
+};
+
+////////////////////////////////////////////////////////////////////////////////
 // Structs related to headsets
 ////////////////////////////////////////////////////////////////////////////////
 

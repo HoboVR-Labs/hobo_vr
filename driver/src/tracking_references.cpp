@@ -1,5 +1,6 @@
 #include "tracking_references.h"
 
+#include "packets.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: settings manager using a tracking reference, this is meant to be
@@ -23,15 +24,27 @@ HobovrTrackingRef_SettManager::HobovrTrackingRef_SettManager(
     m_sModelNumber = "tracking_reference_" + m_sSerialNumber;
     m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_tracking_reference";
 
-    DriverLog("device: settings manager tracking reference created\n");
+    DriverLog(
+        "%s: settings manager created",
+        m_sSerialNumber
+    );
 
     // manager stuff
     try {
-        m_pSocketComm = std::make_shared<SockReceiver::DriverReceiver>("h520");
-        m_pSocketComm->m_sIdMessage = "monky\n";
-        m_pSocketComm->start();
-    } catch (...) {
-        DriverLog("tracking reference: couldn't connect to the server");
+        m_pSocketComm = std::make_shared<recvv::DriverReceiver>(
+            sizeof(HoboVR_ManagerMsg_t),
+            6969,
+            "127.0.01",
+            "monky\n",
+            nullptr
+        );
+        m_pSocketComm->Start();
+    } catch (const std::exception& e) {
+        DriverLog(
+            "%s: failed to start receiver: %s",
+            m_sSerialNumber,
+            e.what()
+        );
     }
     m_pSocketComm->setCallback(this);
 
