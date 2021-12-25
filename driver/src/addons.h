@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+// Copyright (C) 2020-2021 Oleg Vorobiov <oleg.vorobiov@hobovrlabs.org>
 
 #ifndef __HOBO_VR_ADDONS
 #define __HOBO_VR_ADDONS
