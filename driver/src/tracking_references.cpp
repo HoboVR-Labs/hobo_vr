@@ -73,38 +73,40 @@ void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
         return; // do nothing if bad message
     }
 
-    uint32_t* data = (uint32_t*)buff;
-    // DriverLog("tracking reference: message %d %d %d %d", data[0], data[1], data[2], data[129]);
-    switch(data[0]) {
-        case Emsg_ipd: {
-            float newIpd = (float)data[1]/(float)data[2];
+    (void)buff;
+
+    HoboVR_ManagerMsg_t* message = (HoboVR_ManagerMsg_t*)buff;
+
+    switch (message->type) {
+        case EManagerMsgType_ipd: {
             vr::VRSettings()->SetFloat(
                 k_pch_Hmd_Section,
                 k_pch_Hmd_IPD_Float,
-                newIpd
+                message->ipd.ipd_meters
             );
-            m_pSocketComm->send2("2000");
+
+            HoboVR_ManagerResponse_t resp{EManagerResponse_ok};
+            m_pSocketComm->Send(
+                &resp,
+                sizeof(resp)
+            );
             DriverLog("tracking reference: ipd change request processed");
             break;
         }
 
-        case Emsg_uduString: {
-            int iUduLen = data[1];
-            std::vector<std::pair<std::string, int>> temp;
-            for (int i=0; i<iUduLen*2; i+=2) {
-                int dt = data[2+i];
-                int dp = data[2+i+1];
-                std::pair<std::string, int> p;
-                p.second = dp;
+        case EManagerMsgType_uduString: {
+            std::vector<std::string> temp;
+            for (int i=0; i < message->udu.len; i+=2) {
+                std::string p;
 
-                if (dt == 0)
-                    p.first = "h";
-                else if (dt == 1)
-                    p.first = "c";
-                else if (dt == 2)
-                    p.first = "t";
-                else if (dt == 3)
-                    p.first = "g";
+                if (message->udu.devices[i].device_type == 0)
+                    p = "h";
+                else if (message->udu.devices[i].device_type == 1)
+                    p = "c";
+                else if (message->udu.devices[i].device_type == 2)
+                    p = "t";
+                else if (message->udu.devices[i].device_type == 3)
+                    p = "g";
 
                 temp.push_back(p);
             }
@@ -121,15 +123,19 @@ void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
             DriverLog(
                 "tracking reference: udu settings change request processed"
             );
-            m_pSocketComm->send2("2000");
+            HoboVR_ManagerResponse_t resp{EManagerResponse_ok};
+            m_pSocketComm->Send(
+                &resp,
+                sizeof(resp)
+            );
             break;
         }
 
-        case Emsg_setSelfPose: {
+        case EManagerMsgType_setSelfPose: {
 
-            m_Pose.vecPosition[0] = (float)data[1]/(float)data[2];
-            m_Pose.vecPosition[1] = (float)data[3]/(float)data[4];
-            m_Pose.vecPosition[2] = (float)data[5]/(float)data[6];
+            m_Pose.vecPosition[0] = message->self_pose.position[0];
+            m_Pose.vecPosition[1] = message->self_pose.position[1];
+            m_Pose.vecPosition[2] = message->self_pose.position[2];
 
             if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
                 vr::VRServerDriverHost()->TrackedDevicePoseUpdated(
@@ -139,16 +145,21 @@ void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
                 );
             }
 
-            m_pSocketComm->send2("2000");
+            HoboVR_ManagerResponse_t resp{EManagerResponse_ok};
+            m_pSocketComm->Send(
+                &resp,
+                sizeof(resp)
+            );
             DriverLog("tracking reference: pose change request processed");
             break;
         }
 
-        case Emsg_distortion: {
-            float newK1 = (float)data[1]/(float)data[2];
-            float newK2 = (float)data[3]/(float)data[4];
-            float newZoomW = (float)data[5]/(float)data[6];
-            float newZoomH = (float)data[7]/(float)data[8];
+        case EManagerMsgType_distortion: {
+            float newK1 = message->distortion.k1;
+            float newK2 = message->distortion.k2;
+            float newZoomW = message->distortion.zoom_width;
+            float newZoomH = message->distortion.zoom_height;
+
             vr::VRSettings()->SetFloat(
                 hobovr::k_pch_ExtDisplay_Section,
                 hobovr::k_pch_ExtDisplay_DistortionK1_Float,
@@ -174,32 +185,46 @@ void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
             );
 
 
-            m_pSocketComm->send2("2000");
+            HoboVR_ManagerResponse_t resp{EManagerResponse_ok};
+            m_pSocketComm->Send(
+                &resp,
+                sizeof(resp)
+            );
             DriverLog("tracking reference: distortion update request processed");
             break;
         }
 
-        case Emsg_eyeGap: {
+        case EManagerMsgType_eyeGap: {
             vr::VRSettings()->SetInt32(
                 hobovr::k_pch_ExtDisplay_Section,
                 hobovr::k_pch_ExtDisplay_EyeGapOffset_Int,
-                data[1]
+                message->eye_offset.width
             );
 
-            m_pSocketComm->send2("2000");
+            HoboVR_ManagerResponse_t resp{EManagerResponse_ok};
+            m_pSocketComm->Send(
+                &resp,
+                sizeof(resp)
+            );
             DriverLog("tracking reference: eye gap change request processed");
             break;
         }
 
-        case Emsg_poseTimeOffset: {
-            float newTimeOffset = (float)data[1]/(float)data[2];
+        case EManagerMsgType_poseTimeOffset: {
+            float newTimeOffset = message->time_offset.time_offset_seconds;
+
             vr::VRSettings()->SetFloat(
                 k_pch_Hobovr_Section,
                 hobovr::k_pch_Hobovr_PoseTimeOffset_Float,
                 newTimeOffset
             );
 
-            m_pSocketComm->send2("2000");
+
+            HoboVR_ManagerResponse_t resp{EManagerResponse_ok};
+            m_pSocketComm->Send(
+                &resp,
+                sizeof(resp)
+            );
             DriverLog(
                 "tracking reference: pose time offset change request processed"
             );
@@ -208,7 +233,12 @@ void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
 
         default:
             DriverLog("tracking reference: message not recognized");
-            m_pSocketComm->send2("-100");
+
+            HoboVR_ManagerResponse_t resp{EManagerResponse_invalid};
+            m_pSocketComm->Send(
+                &resp,
+                sizeof(resp)
+            );
     }
 }
 

@@ -102,6 +102,100 @@ struct HoboVR_TrackerPose_t {
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// Structs related to the manager
+////////////////////////////////////////////////////////////////////////////////
+
+//-----------------------------------------------------------------------------
+// Purpose: tracking reference device that manages settings
+//-----------------------------------------------------------------------------
+
+enum EHoboVR_ManagerMsgType {
+    EManagerMsgType_invalid = 0,
+    EManagerMsgType_ipd = 10,
+    EManagerMsgType_uduString = 20,
+    EManagerMsgType_poseTimeOffset = 30,
+    EManagerMsgType_distortion = 40,
+    EManagerMsgType_eyeGap = 50,
+    EManagerMsgType_setSelfPose = 60,
+};
+
+// changes the ipd for hmd devices
+struct HoboVR_ManagerMsgIpd_t {
+    float ipd_meters;
+};
+
+// updates device list live
+struct HoboVR_ManagerMsgUduString_t {
+    uint16_t len; // number of devices, with the maximum being 512
+    struct {
+        uint8_t device_type; // device type EHoboVR_DeviceTypes enum
+    } devices[512];
+};
+
+// updates pose time offsets
+struct HoboVR_ManagerMsgPoseTimeOff_t {
+    double time_offset_seconds;
+};
+
+// updates distortion parameters, will require a restart to take effect
+struct HoboVR_ManagerMsgDistortion_t {
+    double k1;
+    double k2;
+    double zoom_width;
+    double zoom_height;
+};
+
+// updates the hobovr_comp_extendedDisplay eye gap setting,
+// will require a restart to take effect
+struct HoboVR_ManagerMsgEyeGap_t {
+    uint32_t width; // in pixels
+};
+
+// updates the location of the virtual base station device (which manager runs as)
+struct HoboVR_ManagerMsgSelfPose_t {
+    float position[3];
+};
+
+struct HoboVR_ManagerMsgReserved_t {
+    uint8_t meh[520]; // 520 total reserved bytes
+};
+
+struct HoboVR_ManagerMsg_t {
+    uint32_t type; // EHoboVR_ManagerMsgType enum
+    union {
+        HoboVR_ManagerMsgReserved_t reserved;
+        HoboVR_ManagerMsgIpd_t ipd;
+        HoboVR_ManagerMsgUduString_t udu;
+        HoboVR_ManagerMsgPoseTimeOff_t time_offset;
+        HoboVR_ManagerMsgDistortion_t distortion;
+        HoboVR_ManagerMsgEyeGap_t eye_offset;
+        HoboVR_ManagerMsgSelfPose_t self_pose;
+    };
+    char terminator[3];
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
+enum EHoboVR_ManagerResponse {
+    EManagerResponse_invalid = 0,
+
+    EManagerResponse_notification = 100,
+
+    EManagerResponse_ok = 200,
+    EManagerResponse_okRestartRequired = 201,
+
+    EManagerResponse_failed = 400,
+    EManagerResponse_failedToProcess = 401,
+
+    EManagerResponse_max
+};
+
+// manager response message, only sent in response to ManagerMsg structs
+struct HoboVR_ManagerResponse_t {
+    uint32_t status; // EHoboVR_ManagerResponse enum
+};
+
+////////////////////////////////////////////////////////////////////////////////
 // Structs related to addons
 ////////////////////////////////////////////////////////////////////////////////
 
