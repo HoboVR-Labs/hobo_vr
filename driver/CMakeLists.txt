@@ -126,7 +126,10 @@ include_directories(
 file(GLOB driver_hobovr_src
   "src/*.cpp"
   "src/*.h"
-  "src/ref/*.cpp"
+  # "src/ref/*.cpp"
+  "src/ref/hobovr*.cpp"
+  "src/ref/util.cpp"
+  "src/ref/receiver_${PLATFORM_NAME}.cpp"
   "src/ref/*.h"
 ) # grab all source files
 
