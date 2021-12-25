@@ -206,10 +206,15 @@ struct HoboVR_ManagerResponse_t {
 enum EHoboVR_GazeStatus {
     EGazeStatus_invalid = 0,
     EGazeStatus_active = 1, // everything is ok, both eyes are tracking
-    EGazeStatus_leftEyeLost = 2, // left eye lost tracking
-    EGazeStatus_rightEyeLost = 3, // right eye lost tracking
-    EGazeStatus_bothEyesLost = 4, // both eyes lost tracking
-    EGazeStatus_lowConfidence = 5, // low confidence in tracking
+    EGazeStatus_calibrating = 2, // device is performing calibration
+
+    EGazeStatus_leftEyeLost = 20, // left eye lost tracking
+    EGazeStatus_rightEyeLost = 21, // right eye lost tracking
+    EGazeStatus_bothEyesLost = 22, // both eyes lost tracking
+
+    EGazeStatus_lowConfidence = 30, // low confidence in tracking for both eyes
+    EGazeStatus_lowConfidenceLeftEye = 31, // low confidence in left eye tracking
+    EGazeStatus_lowConfidenceRightEye = 32, // low confidence in right eye tracking
 
     EGazeStatus_max
 };
@@ -223,7 +228,11 @@ struct HoboVR_GazeState_t {
     float gaze_direction_l[2]; // vec 2
     float gaze_orientation_r[4]; // quat
     float gaze_orientation_l[4]; // quat
-    // maybe something else?
+
+    float right_eye_occlusion; // 0 - not occluded, 1 - occluded
+    float left_eye_occlusion; // 0 - not occluded, 1 - occluded
+
+    // maybe more?
 };
 
 #pragma pack(pop)
