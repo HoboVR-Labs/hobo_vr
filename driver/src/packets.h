@@ -19,7 +19,7 @@ struct HoboVR_HapticResponse_t {
     double amplitude;
 };
 
-enum EHoboVR_PoserRespType {
+enum EHoboVR_PoserRespTypes {
     EPoserRespType_invalid = 0,
 
     EPoserRespType_badDeviceList = 10, // poser fucked up, data is HoboVR_RespBufSize_t
@@ -32,7 +32,7 @@ struct HoboVR_RespBufSize_t {
 };
 
 struct HoboVR_RespReserved_t {
-    uint8_t parts[64]; // we get 32 reserved bytes
+    uint8_t parts[32]; // we get 32 reserved bytes
 };
 
 typedef union {
@@ -41,8 +41,9 @@ typedef union {
 } HoboVR_RespData_t;
 
 struct HoboVR_PoserResp_t {
-    uint32_t type; // EHoboVR_PoserRespType enum
+    uint32_t type; // EHoboVR_PoserRespTypes enum
     HoboVR_RespData_t data;
+    char terminator[3];
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -113,7 +114,7 @@ struct HoboVR_TrackerPose_t {
 // Purpose: tracking reference device that manages settings
 //-----------------------------------------------------------------------------
 
-enum EHoboVR_ManagerMsgType {
+enum EHoboVR_ManagerMsgTypes {
     EManagerMsgType_invalid = 0,
     EManagerMsgType_ipd = 10,
     EManagerMsgType_uduString = 20,
@@ -121,6 +122,19 @@ enum EHoboVR_ManagerMsgType {
     EManagerMsgType_distortion = 40,
     EManagerMsgType_eyeGap = 50,
     EManagerMsgType_setSelfPose = 60,
+    EManagerMsgType_getTrkBuffSize = 70,
+
+    EManagerMsgType_max
+};
+
+enum EHoboVR_DeviceTypes {
+    EDeviceType_invalid = -1,
+    EDeviceType_headset = 0,
+    EDeviceType_controller = 1,
+    EDeviceType_tracker = 2,
+    EDeviceType_gazeMaster = 3,
+
+    EDeviceType_max
 };
 
 // changes the ipd for hmd devices
@@ -131,9 +145,7 @@ struct HoboVR_ManagerMsgIpd_t {
 // updates device list live
 struct HoboVR_ManagerMsgUduString_t {
     uint16_t len; // number of devices, with the maximum being 512
-    struct {
-        uint8_t device_type; // device type EHoboVR_DeviceTypes enum
-    } devices[512];
+    uint8_t devices[512]; // elements are EHoboVR_DeviceTypes enum
 };
 
 // updates pose time offsets
@@ -164,39 +176,41 @@ struct HoboVR_ManagerMsgReserved_t {
     uint8_t meh[520]; // 520 total reserved bytes
 };
 
+union HoboVR_ManagerData_t {
+    HoboVR_ManagerMsgReserved_t reserved;
+    HoboVR_ManagerMsgIpd_t ipd;
+    HoboVR_ManagerMsgUduString_t udu;
+    HoboVR_ManagerMsgPoseTimeOff_t time_offset;
+    HoboVR_ManagerMsgDistortion_t distortion;
+    HoboVR_ManagerMsgEyeGap_t eye_offset;
+    HoboVR_ManagerMsgSelfPose_t self_pose;
+};
+
 struct HoboVR_ManagerMsg_t {
-    uint32_t type; // EHoboVR_ManagerMsgType enum
-    union {
-        HoboVR_ManagerMsgReserved_t reserved;
-        HoboVR_ManagerMsgIpd_t ipd;
-        HoboVR_ManagerMsgUduString_t udu;
-        HoboVR_ManagerMsgPoseTimeOff_t time_offset;
-        HoboVR_ManagerMsgDistortion_t distortion;
-        HoboVR_ManagerMsgEyeGap_t eye_offset;
-        HoboVR_ManagerMsgSelfPose_t self_pose;
-    };
+    uint32_t type; // EHoboVR_ManagerMsgTypes enum
+    HoboVR_ManagerData_t data;
     char terminator[3];
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
-enum EHoboVR_ManagerResponse {
-    EManagerResponse_invalid = 0,
+enum EHoboVR_ManagerResp {
+    EManagerResp_invalid = 0,
 
-    EManagerResponse_notification = 100,
+    EManagerResp_notification = 100,
 
-    EManagerResponse_ok = 200,
-    EManagerResponse_okRestartRequired = 201,
+    EManagerResp_ok = 200,
+    EManagerResp_okRestartRequired = 201,
 
-    EManagerResponse_failed = 400,
-    EManagerResponse_failedToProcess = 401,
+    EManagerResp_failed = 400,
+    EManagerResp_failedToProcess = 401,
 
-    EManagerResponse_max
+    EManagerResp_max
 };
 
 // manager response message, only sent in response to ManagerMsg structs
-struct HoboVR_ManagerResponse_t {
-    uint32_t status; // EHoboVR_ManagerResponse enum
+struct HoboVR_ManagerResp_t {
+    uint32_t status; // EHoboVR_ManagerResp enum
 };
 
 ////////////////////////////////////////////////////////////////////////////////
