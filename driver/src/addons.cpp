@@ -7,7 +7,7 @@
 
 GazeMasterDriver::GazeMasterDriver(
     std::string myserial
-): HobovrDevice(myserial, "") {
+): HobovrDevice(myserial, "hobovr_gaze_master") {
     m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_gaze_master";
     m_bSlowUpdateThreadIsAlive = false;
     m_bPause = false;
@@ -35,6 +35,7 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
             "GazeMaster: failed to open shmem on %s",
             m_pSharedMemory->Path().c_str()
         );
+        m_unObjectId = vr::k_unTrackedDeviceIndexInvalid; // to stop state updates...
         return vr::VRInitError_IPC_SharedStateInitFailed;
     }
     DriverLog("GazeMaster: success!");
@@ -62,7 +63,7 @@ void GazeMasterDriver::SlowUpdateThreadEnter(GazeMasterDriver* self) {
 void GazeMasterDriver::SlowUpdateThread() {
     while (m_bSlowUpdateThreadIsAlive) {
 
-        if (!m_bPause) {
+        if (!m_bPause && m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
             vr::VREvent_Notification_t event_data = {69, 0};
             vr::VRServerDriverHost()->VendorSpecificEvent(
                 m_unObjectId,
@@ -112,10 +113,12 @@ void GazeMasterDriver::PowerOn() {
 
 void GazeMasterDriver::UpdateState(void* data) {
     HoboVR_GazeState_t* packet = (HoboVR_GazeState_t*)data;
-
-    HoboVR_GazeState_t* shared_state = (HoboVR_GazeState_t*)m_pSharedMemory->Data();
-
-    *shared_state = *packet;
+    // (void)packet;
+    if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
+        HoboVR_GazeState_t* shared_state = (HoboVR_GazeState_t*)m_pSharedMemory->Data();
+        // (void)shared_state;
+        *shared_state = *packet;
+    }
 
 }
 
