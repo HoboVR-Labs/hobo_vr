@@ -11,16 +11,7 @@
 #include <cmath>
 #include <memory>
 
-#if defined(_WIN32)
-
-#include "receiver_win.h"
-
-#elif defined(__linux__)
-
-#include "receiver_linux.h"
 #define _stricmp strcasecmp
-
-#endif
 
 #include "hobovr_defines.h"
 
