@@ -86,13 +86,18 @@ public:
 
 	virtual void EnterStandby() {}
 	virtual void LeaveStandby() {}
-	virtual void RunFrame();
+	virtual void RunFrame() {}
 	void OnPacket(char* buff, int len);
 
 private:
 	void SlowUpdateThread();
-	static void SlowUpdateThreadEnter(CServerDriver_hobovr *ptr) {
+	static void SlowUpdateThreadEnter(CServerDriver_hobovr* ptr) {
 		ptr->SlowUpdateThread();
+	}
+
+	void FastThread();
+	static void FastThreadEnter(CServerDriver_hobovr* ptr) {
+		ptr->FastThread();
 	}
 
 	void UpdateServerDeviceList();
@@ -105,10 +110,10 @@ private:
 
 	bool m_bDeviceListSyncEvent = false;
 
-
 	// slower thread stuff
-	bool m_bSlowUpdateThreadIsAlive;
-	std::thread* m_ptSlowUpdateThread;
+	bool m_bThreadAlive;
+	std::unique_ptr<std::thread> m_ptSlowUpdateThread;
+	std::unique_ptr<std::thread> m_ptFastThread;
 };
 
 // yes
@@ -123,132 +128,57 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 		hobovr::k_sHobovrVersionGG.c_str()
 	);
 
-	std::string uduThing;
-	char buf[1024];
-	vr::VRSettings()->GetString(
-		k_pch_Hobovr_Section,
-		k_pch_Hobovr_UduDeviceManifestList_String,
-		buf,
-		sizeof(buf)
-	);
-	uduThing = buf;
-	DriverLog("driver: udu settings: '%s'\n", uduThing.c_str());
+	// std::string uduThing;
+	// char buf[1024];
+	// vr::VRSettings()->GetString(
+	// 	k_pch_Hobovr_Section,
+	// 	k_pch_Hobovr_UduDeviceManifestList_String,
+	// 	buf,
+	// 	sizeof(buf)
+	// );
+	// uduThing = buf;
+	// DriverLog("driver: udu settings: '%s'\n", uduThing.c_str());
 
-	// udu setting parse is done by recvv
-	try{
-		m_pSocketComm = std::make_shared<recvv::DriverReceiver>(uduThing);
-		m_pSocketComm->Start();
+	// udu setting parse is done by recvv::DriverReceiver
+	// for (int i=0; i<10; i++) {
+		try{
+			// m_pSocketComm = std::make_shared<recvv::DriverReceiver>(uduThing);
+			m_pSocketComm = std::make_shared<recvv::DriverReceiver>(16); // default buffer is 16 bytes
+			m_pSocketComm->Start();
 
-	} catch (const std::exception& e){
-		DriverLog("failed to start receiver: %s", e.what());
-		return VRInitError_Init_WebServerFailed;
-
-	}
-
-	int counter_hmd = 0;
-	int counter_cntrlr = 0;
-	int counter_trkr = 0;
-	int gaze_master_counter = 0;
-	int controller_hs = 1;
-
-	// add new devices based on the udu parse 
-	for (std::string i : m_pSocketComm->GetDevices()) {
-		if (i == "h") {
-			HeadsetDriver* temp = new HeadsetDriver(
-				"h" + std::to_string(counter_hmd)
-			);
-
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
-				temp->GetSerialNumber().c_str(),
-				vr::TrackedDeviceClass_HMD,
-				temp
-			);
-
-			m_vDevices.push_back({EHobovrDeviceNodeTypes::hmd, temp});
-
-			counter_hmd++;
-
-		} else if (i == "c") {
-			ControllerDriver* temp = new ControllerDriver(
-				controller_hs,
-				"c" + std::to_string(counter_cntrlr),
-				m_pSocketComm
-			);
-
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
-						temp->GetSerialNumber().c_str(),
-						vr::TrackedDeviceClass_Controller,
-						temp);
-			m_vDevices.push_back({EHobovrDeviceNodeTypes::controller, temp});
-
-			controller_hs = (controller_hs) ? 0 : 1;
-			counter_cntrlr++;
-
-		} else if (i == "t") {
-			TrackerDriver* temp = new TrackerDriver(
-				"t" + std::to_string(counter_trkr),
-				m_pSocketComm
-			);
-
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
-				temp->GetSerialNumber().c_str(),
-				vr::TrackedDeviceClass_GenericTracker,
-				temp
-			);
-
-			m_vDevices.push_back({EHobovrDeviceNodeTypes::tracker, temp});
-
-			counter_trkr++;
-
-		} else if (i == "g") {
-
-			GazeMasterDriver* temp = new GazeMasterDriver(
-				"g" + std::to_string(gaze_master_counter)
-			);
-
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
-						temp->GetSerialNumber().c_str(),
-						vr::TrackedDeviceClass_GenericTracker,
-						temp);
-			m_vDevices.push_back({EHobovrDeviceNodeTypes::gaze_master, temp});
-
-			gaze_master_counter++;
-
-		} else {
-			DriverLog("driver: unsupported device type: %s", i.c_str());
-			return VRInitError_VendorSpecific_HmdFound_ConfigFailedSanityCheck;
+		} catch (const std::exception& e){
+			DriverLog("failed to start receiver: %s", e.what());
+			return VRInitError_Init_WebServerFailed;
+			// continue;
 		}
-	}
+		// break;
+	// }
 
 	// start listening for device data
 	m_pSocketComm->setCallback(this);
 
-	// misc slow update thread
-	m_bSlowUpdateThreadIsAlive = true;
-	m_ptSlowUpdateThread = new std::thread(this->SlowUpdateThreadEnter, this);
-	if (!m_bSlowUpdateThreadIsAlive) {
-		DriverLog("driver: slow update thread broke on start\n");
-		return VRInitError_IPC_Failed;
-	}
-
 	// settings manager
-	m_pSettManTref = std::make_shared<HobovrTrackingRef_SettManager>("trsm0");
+	m_pSettManTref = std::make_shared<HobovrTrackingRef_SettManager>("trsm0", m_pSocketComm);
 	vr::VRServerDriverHost()->TrackedDeviceAdded(
 		m_pSettManTref->GetSerialNumber().c_str(),
 		vr::TrackedDeviceClass_TrackingReference,
 		m_pSettManTref.get()
 	);
 
-	m_pSettManTref->UpdatePose();
+	// misc slow and fast threads
+	m_bThreadAlive = true;
+	m_ptSlowUpdateThread = std::make_unique<std::thread>(this->SlowUpdateThreadEnter, this);
+	m_ptFastThread = std::make_unique<std::thread>(this->FastThreadEnter, this);
 
 	return VRInitError_None;
 }
 
 void CServerDriver_hobovr::Cleanup() {
 	DriverLog("driver cleanup called");
-	m_pSocketComm->Stop();
-	m_bSlowUpdateThreadIsAlive = false;
+	m_bThreadAlive = false;
 	m_ptSlowUpdateThread->join();
+	m_ptFastThread->join();
+	m_pSocketComm->Stop();
 
 	for (auto& i : m_vDevices) {
 		switch (i.type) {
@@ -321,6 +251,8 @@ void CServerDriver_hobovr::OnPacket(char* buff, int len) {
 	if ((size_t)len == (m_pSocketComm->GetBufferSize()+3) && !m_bDeviceListSyncEvent) {
 		uint32_t buff_offset = 0;
 
+		// float* meh = (float*)buff;
+
 		for (size_t i=0; i < m_vDevices.size(); i++){
 			switch (m_vDevices[i].type) {
 				case EHobovrDeviceNodeTypes::hmd: {
@@ -355,9 +287,9 @@ void CServerDriver_hobovr::OnPacket(char* buff, int len) {
 					break;
 				}
 			}
-
 		}
 
+    	// DriverLog("got data: %f %f %f %d", meh[0], meh[1], meh[2], len);
 	} else {
 		// tell the poser it fucked up
 		// TODO: make different responses for different fuck ups...
@@ -366,8 +298,10 @@ void CServerDriver_hobovr::OnPacket(char* buff, int len) {
 
 		HoboVR_PoserResp_t resp{
 			EPoserRespType_badDeviceList,
-			(HoboVR_RespData_t&)expected_size
+			(HoboVR_RespData_t&)expected_size,
+			""
 		};
+		memcpy(resp.terminator, "\t\r\n", 3);
 
 		m_pSocketComm->Send(
 			&resp,
@@ -375,46 +309,21 @@ void CServerDriver_hobovr::OnPacket(char* buff, int len) {
 		);
 		// GOD FUCKING FINALLY
 
-		DriverLog("driver: posers are getting inored~\n\texpected %d bytes, got %d bytes~\n",
+		// so logs in steamvr take ages to complete... TOO BAD!
+		DriverLog("driver: posers are getting ignored~ expected %d bytes, got %d bytes~\n",
 			(m_pSocketComm->GetBufferSize()+3),
 			len
 		);
+
 	}
 
 }
 
-void CServerDriver_hobovr::RunFrame() {
-	vr::VREvent_t vrEvent;
-	while (vr::VRServerDriverHost()->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
-		for (auto& i : m_vDevices) {
-			switch (i.type) {
-				case EHobovrDeviceNodeTypes::hmd: {
-					HeadsetDriver* device = (HeadsetDriver*)i.handle;
-					device->ProcessEvent(vrEvent);
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::controller: {
-					ControllerDriver* device = (ControllerDriver*)i.handle;
-					device->ProcessEvent(vrEvent);
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::tracker: {
-					TrackerDriver* device = (TrackerDriver*)i.handle;
-					device->ProcessEvent(vrEvent);
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::gaze_master: {
-					GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
-					device->ProcessEvent(vrEvent);
-					break;
-				}
-			}
-		}
-
-		if (vrEvent.eventType == EHoboVR_VendorEvents::EHoboVR_UduChange) {
+void CServerDriver_hobovr::FastThread() {
+	DriverLog("FastThread started");
+	while (m_bThreadAlive) {
+		// check of incoming udu events
+		if (m_pSettManTref->UduEvent()) {
 			DriverLog("udu change event");
 			std::string newUduString = "";
 			auto uduBufferCopy = m_pSettManTref->m_vpUduChangeBuffer;
@@ -429,9 +338,47 @@ void CServerDriver_hobovr::RunFrame() {
 			UpdateServerDeviceList();
 			m_bDeviceListSyncEvent = false;
 		}
+
+		vr::VREvent_t vrEvent;
+		while (vr::VRServerDriverHost()->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
+
+			for (auto& i : m_vDevices) {
+				switch (i.type) {
+					case EHobovrDeviceNodeTypes::hmd: {
+						HeadsetDriver* device = (HeadsetDriver*)i.handle;
+						device->ProcessEvent(vrEvent);
+						break;
+					}
+
+					case EHobovrDeviceNodeTypes::controller: {
+						ControllerDriver* device = (ControllerDriver*)i.handle;
+						device->ProcessEvent(vrEvent);
+						break;
+					}
+
+					case EHobovrDeviceNodeTypes::tracker: {
+						TrackerDriver* device = (TrackerDriver*)i.handle;
+						device->ProcessEvent(vrEvent);
+						break;
+					}
+
+					case EHobovrDeviceNodeTypes::gaze_master: {
+						GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
+						device->ProcessEvent(vrEvent);
+						break;
+					}
+				}
+			}
+
+		}
+
+		std::this_thread::sleep_for(std::chrono::nanoseconds(1));
 	}
+	DriverLog("FastThread ended");
 }
 
+// Updates currently running devices
+// TODO: do that without powering off all devices first...
 void CServerDriver_hobovr::UpdateServerDeviceList() {
 	for (auto i : m_vDevices) {
 		switch (i.type) {
@@ -638,7 +585,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 void CServerDriver_hobovr::SlowUpdateThread() {
 	DriverLog("driver: slow update thread started\n");
 
-	while (m_bSlowUpdateThreadIsAlive){
+	while (m_bThreadAlive){
 		for (auto &i : m_vDevices){
 			switch (i.type) {
 				case EHobovrDeviceNodeTypes::hmd: {
@@ -677,7 +624,6 @@ void CServerDriver_hobovr::SlowUpdateThread() {
 
 	}
 	DriverLog("driver: slow update thread closed\n");
-	m_bSlowUpdateThreadIsAlive = false;
 
 }
 
