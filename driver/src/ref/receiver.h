@@ -39,7 +39,7 @@ namespace recvv {
 		std::vector<std::string> GetDevices();
 		size_t GetBufferSize();
 
-		int Send(const void* buff, size_t size);
+		int Send(const void* buff, size_t size, int flags = 0);
 		int Send(const std::string message);
 
 		void setCallback(Callback* pCb);

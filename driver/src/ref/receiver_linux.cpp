@@ -5,9 +5,16 @@
 #include "receiver.h"
 
 #include <string>
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <errno.h>
+
+#include "driverlog.h"
 
 #include "packets.h"
 
@@ -30,39 +37,55 @@ DriverReceiver::DriverReceiver(
 	_device_list.clear();
 
 	// placeholders for filling in seckaddr_in
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
-    memset(&serv_addr, 0, sizeof(serv_addr));
+	struct sockaddr_in serv_addr;
+	struct hostent *server;
 
-    server = gethostbyname(addr.c_str());
+	// create socket
+	fdSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if (fdSocket < 0) {
+		throw std::runtime_error(
+			"DriverReceiver failed to create socket: errno=" +
+			std::to_string(errno) +
+			" addr=" +
+			addr +
+			":" +
+			std::to_string(port) +
+			" id=" +
+			sIdMessage +
+			"socket_obj=" +
+			std::to_string(fdSocket)
+		);
+	}
 
-    memcpy(&serv_addr, server, server->h_length);
-    serv_addr.sin_port = htons(port);
+	// filling out the connection info
+	memset(&serv_addr, 0, sizeof(serv_addr));
 
-    // create socket
-    fdSocket = socket(AF_INET, SOCK_STREAM, 0);
+	server = gethostbyname(addr.c_str());
 
-    // try to connect
-    int res = connect(fdSocket, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+	memmove(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(port);
+
+	// try to connect
+	int res = connect(
+		fdSocket,
+		(struct sockaddr *)&serv_addr,
+		sizeof(struct sockaddr)
+	);
 
 
 	if (res < 0) {
-		#ifdef DRIVERLOG_H
-		DriverLog(
-			"DriverReceiver(%s) failed to connect: %d",
-			sIdMessage.c_str(),
-			errno
+		throw std::runtime_error(
+			"DriverReceiver failed to connect: errno=" +
+			std::to_string(errno) +
+			" addr=" +
+			addr +
+			":" +
+			std::to_string(port) +
+			" id=" +
+			sIdMessage
 		);
-		#endif
-		throw std::runtime_error("failed to connect: " + std::to_string(errno));
 	}
-
-	#ifdef DRIVERLOG_H
-	DriverLog(
-		"DriverReceiver(%s) receiver failed to connect to host",
-		sIdMessage.c_str()
-	);
-	#endif
 }
 
 // overload for processing udu strings in the constructor
@@ -73,16 +96,69 @@ DriverReceiver::DriverReceiver(
 	std::string addr,
 	std::string id_message,
 	Callback* callback
-) {
-	// this is wasteful, too bad!
-	UpdateParams(udu_string);
+): sIdMessage(id_message), pCallback(callback) {
 
-	// call the main constructor
-	DriverReceiver(_buff_size, port, addr, id_message, callback);
+	// // this is wasteful, too bad!
+	// UpdateParams(udu_string);
+
+	// DriverLog("uhhhhhhhhhh %s %d", udu_string.c_str(), _buff_size);
+
+	// // call the main constructor
+	// DriverReceiver(_buff_size, port, addr, id_message, callback);
 
 	UpdateParams(udu_string); // refill device list vector
-
 	bReset = false;
+
+	// placeholders for filling in seckaddr_in
+	struct sockaddr_in serv_addr;
+	struct hostent *server;
+
+	// create socket
+	fdSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if (fdSocket < 0) {
+		throw std::runtime_error(
+			"DriverReceiver failed to create socket: errno=" +
+			std::to_string(errno) +
+			" addr=" +
+			addr +
+			":" +
+			std::to_string(port) +
+			" id=" +
+			sIdMessage +
+			"socket_obj=" +
+			std::to_string(fdSocket)
+		);
+	}
+
+	// filling out the connection info
+	memset(&serv_addr, 0, sizeof(serv_addr));
+
+	server = gethostbyname(addr.c_str());
+
+	memmove(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(port);
+
+	// try to connect
+	int res = connect(
+		fdSocket,
+		(struct sockaddr *)&serv_addr,
+		sizeof(struct sockaddr)
+	);
+
+
+	if (res < 0) {
+		throw std::runtime_error(
+			"DriverReceiver failed to connect: errno=" +
+			std::to_string(errno) +
+			" addr=" +
+			addr +
+			":" +
+			std::to_string(port) +
+			" id=" +
+			sIdMessage
+		);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -107,15 +183,9 @@ void DriverReceiver::Start() {
 	pThread = std::make_shared<std::thread>(thread_enter, this);
 
 	if (!pThread || !bAlive) {
-		#ifdef DRIVERLOG_H
-		DriverLog(
-			"DriverReceiver(%s) failed to start thread",
-			sIdMessage.c_str()
-		);
-		#endif
 		close_internal();
 
-        throw std::runtime_error("failed to start receiver thread");
+		throw std::runtime_error("DriverReceiver failed to start receiver thread");
 	}
 }
 
@@ -124,6 +194,8 @@ void DriverReceiver::Start() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void DriverReceiver::Stop() {
+	DriverLog("DriverReceiver(%s) stop called, exiting...", sIdMessage.c_str());
+
 	bAlive = false;
 	close_internal();
 
@@ -153,8 +225,8 @@ size_t DriverReceiver::GetBufferSize() {
 // send buffer
 ////////////////////////////////////////////////////////////////////////////////
 
-int DriverReceiver::Send(const void* buff, size_t size) {
-	return send(fdSocket, buff, size, 0);
+int DriverReceiver::Send(const void* buff, size_t size, int flags) {
+	return send(fdSocket, buff, size, flags);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -215,40 +287,42 @@ void DriverReceiver::close_internal() {
 void DriverReceiver::thread() {
 	int numbit = 0, msglen;
 	// purposefully allocate a bigger buffer then needed
-    int tempMsgSize = _buff_size * 10;
+	int tempMsgSize = _buff_size * 10;
 	void* recv_buffer = malloc(tempMsgSize);
-
-	#ifdef DRIVERLOG_H
-	DriverLog("DriverReceiver(%s) thread started", sIdMessage.c_str());
-	#endif
+	memset(recv_buffer, 0, tempMsgSize);
 
 	while (bAlive) {
+		// realloc early if we can
+		if (bReset) {
+			DriverLog("DriverReceiver(%s) resizing receive buffer...", sIdMessage.c_str());
+			numbit = 0; // zero this off
+			tempMsgSize = _buff_size * 10; // recalculate buffer size
+			recv_buffer = realloc(recv_buffer, tempMsgSize); // realloc buffer
+			memset(recv_buffer, 0, tempMsgSize);
+			bReset = false;
+		}
 
 		msglen = receive_till_zero(
 			fdSocket,
-			(char*)recv_buffer,
+			recv_buffer,
 			numbit,
 			tempMsgSize
 		);
 
-		if (msglen == -1)
+		if (msglen == -1) {
+			DriverLog("DriverReceiver(%s) bad message, exiting...", sIdMessage.c_str());
 			break; // broken socket
+		}
 
 		if (!bReset && pCallback != nullptr)
 			pCallback->OnPacket((char*)recv_buffer, msglen); // callback if we can
 
-		if (bReset) {
-			numbit = 0; // zero this off
-			tempMsgSize = _buff_size * 10; // recalculate buffer size
-			recv_buffer = realloc(recv_buffer, tempMsgSize); // realloc buffer
-			bReset = false;
-		}
+
+		std::this_thread::sleep_for(
+			std::chrono::nanoseconds(1)
+		);
 
 	}
-
-	#ifdef DRIVERLOG_H
-	DriverLog("DriverReceiver(%s) thread stopped", sIdMessage.c_str());
-	#endif
 }
 
 
