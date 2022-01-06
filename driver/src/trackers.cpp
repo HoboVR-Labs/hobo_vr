@@ -42,8 +42,8 @@ void TrackerDriver::UpdateState(void* data) {
     pose.result = vr::TrackingResult_Running_OK;
     pose.poseIsValid = true;
     pose.deviceIsConnected = true;
-    pose.willDriftInYaw = false;
-    pose.shouldApplyHeadModel = true;
+    pose.willDriftInYaw = true;
+    pose.shouldApplyHeadModel = false;
     pose.vecPosition[0] = packet->position[0];
     pose.vecPosition[1] = packet->position[1];
     pose.vecPosition[2] = packet->position[2];
