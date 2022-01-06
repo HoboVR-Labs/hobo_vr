@@ -41,9 +41,10 @@ enum HobovrTrackingRef_Msg_type
 class HobovrTrackingRef_SettManager: public vr::ITrackedDeviceServerDriver, public recvv::Callback {
 private:
   std::shared_ptr<recvv::DriverReceiver> m_pSocketComm;
+  std::shared_ptr<recvv::DriverReceiver> m_pOtherSocketComm;
 
 public:
-    HobovrTrackingRef_SettManager(std::string myserial);
+    HobovrTrackingRef_SettManager(std::string myserial, std::shared_ptr<recvv::DriverReceiver> trk_s);
 
     void OnPacket(char* buff, int len);
 
@@ -66,21 +67,25 @@ public:
     std::string GetSerialNumber() const;
 
     void UpdatePose();
+    bool UduEvent();
 
 public:
     std::vector<std::string> m_vpUduChangeBuffer; // for passing udu data
 
 private:
-  // openvr api stuff
-  vr::TrackedDeviceIndex_t m_unObjectId; // DO NOT TOUCH THIS, parent will handle this, use it as read only!
-  vr::PropertyContainerHandle_t m_ulPropertyContainer; // THIS EITHER, use it as read only!
+    // interproc sync
+    bool _UduEvent;
 
-  std::string m_sRenderModelPath; // path to the device's render model, should be populated in the constructor of the derived class
+    // openvr api stuff
+    vr::TrackedDeviceIndex_t m_unObjectId; // DO NOT TOUCH THIS, parent will handle this, use it as read only!
+    vr::PropertyContainerHandle_t m_ulPropertyContainer; // THIS EITHER, use it as read only!
 
-  vr::DriverPose_t m_Pose; // device's pose, use this at runtime
+    std::string m_sRenderModelPath; // path to the device's render model, should be populated in the constructor of the derived class
 
-  std::string m_sSerialNumber; // steamvr uses this to identify devices, no need for you to touch this after init
-  std::string m_sModelNumber; // steamvr uses this to identify devices, no need for you to touch this after init
+    vr::DriverPose_t m_Pose; // device's pose, use this at runtime
+
+    std::string m_sSerialNumber; // steamvr uses this to identify devices, no need for you to touch this after init
+    std::string m_sModelNumber; // steamvr uses this to identify devices, no need for you to touch this after init
 
 };
 
