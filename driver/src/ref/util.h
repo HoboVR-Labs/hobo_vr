@@ -7,10 +7,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#ifndef SOCKET
-#define SOCKET char
-#endif // #ifndef SOCKET
-
 #include <vector>
 #include <iterator>
 #include <regex>
@@ -23,7 +19,7 @@
 namespace recvv {
   //can receive packets ending with \t\r\n using either winsock2 or unix sockets
   template <typename T>
-  inline int receive_till_zero( T sock, char* buf, int& numbytes, int max_packet_size )
+  inline int receive_till_zero( T sock, void* buf, int& numbytes, int max_packet_size )
   {
     // receives a message until an end token is reached
     // thanks to https://stackoverflow.com/a/13528453/10190971
@@ -32,17 +28,12 @@ namespace recvv {
     do {
       // Check if we have a complete message
       for( ; i < numbytes-2; i++ ) {
-        if((buf[i] == '\t' && buf[i+1] == '\r' && buf[i+2] == '\n')) {
-          // \0 indicate end of message! so we are done
+        if(memcmp((char*)buf + i, "\t\r\n", 3) == 0) {
           return i + 3; // return length of message
         }
       }
 
-      if constexpr(std::is_same<T, SOCKET>::value) {
-        n = recv( sock, buf + numbytes, max_packet_size - numbytes, 0 );
-      } else if constexpr(std::is_same<T, int>::value) {
-        n = read( sock, buf + numbytes, max_packet_size - numbytes);
-      }
+      n = recv( sock, (char*)buf + numbytes, max_packet_size - numbytes, 0 );
 
       if( n == -1 ) {
         return -1; // operation failed!
