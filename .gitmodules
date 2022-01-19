@@ -4,3 +4,9 @@
 [submodule "driver/shroom"]
 	path = driver/shroom
 	url = https://github.com/HoboVR-Labs/shroom.git
+[submodule "driver/lazy-sockets"]
+	path = driver/lazy-sockets
+	url = https://github.com/HoboVR-Labs/lazy-sockets.git
+[submodule "bindings/cpp/examples/uduTest/lazy-sockets"]
+	path = bindings/cpp/examples/uduTest/lazy-sockets
+	url = https://github.com/HoboVR-Labs/lazy-sockets.git

@@ -31,7 +31,7 @@ if (MSVC)
     add_compile_options(/W4 /WX)
 else()
     # all warnings as errors
-    add_compile_options(-Wall -Wextra -pedantic -Werror)
+    add_compile_options(-Wall -Wextra -pedantic -Werror -Wno-missing-braces)
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
@@ -103,22 +103,19 @@ message(NOTICE "openvr libs: ${OPENVR_LIBRARIES}")
 message(NOTICE "openvr headers: ${OPENVR_INCLUDE_DIR}")
 
 # shroom dep
-set(SHROOM_ROOT_DIR ${hobo_vr_SOURCE_DIR}/shroom)
-set(SHROOM_INCLUDE_DIR ${SHROOM_ROOT_DIR}/include)
+add_subdirectory(shroom)
+set(SHROOM_INCLUDE_DIR "shroom/include/")
 
-if(PLATFORM_NAME MATCHES "linux")
-  set(SHROOM_SRC ${SHROOM_ROOT_DIR}/src/shoom_unix_darwin.cc)
-
-elseif(PLATFORM_NAME MATCHES "win")
-  set(SHROOM_SRC ${SHROOM_ROOT_DIR}/src/shoom_win32.cc)
-
-endif()
+# lazy-sockets dep
+add_subdirectory("lazy-sockets")
+set(LAZY_SOCKETS_INCLUDE_DIR "lazy-sockets/src/")
 
 
 # actual build instructions
 include_directories(
   ${OPENVR_INCLUDE_DIR}
   ${SHROOM_INCLUDE_DIR}
+  ${LAZY_SOCKETS_INCLUDE_DIR}
   "src/ref/"
   "src/"
 )
@@ -134,7 +131,6 @@ file(GLOB driver_hobovr_src
 ) # grab all source files
 
 add_library(${TARGET_NAME} SHARED
-  ${SHROOM_SRC}
   ${driver_hobovr_src}
 )
 
@@ -142,6 +138,8 @@ add_definitions(-DDRIVER_HOBOVR_EXPORTS)
 
 target_link_libraries(${TARGET_NAME}
   "${OPENVR_LIBRARIES}"
+  shoom
+  lazy_sockets
   ${CMAKE_DL_LIBS}
 )
 
