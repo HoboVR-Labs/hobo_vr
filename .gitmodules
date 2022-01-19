@@ -10,6 +10,3 @@
 [submodule "bindings/cpp/examples/uduTest/lazy-sockets"]
 	path = bindings/cpp/examples/uduTest/lazy-sockets
 	url = https://github.com/HoboVR-Labs/lazy-sockets.git
-[submodule "bindings/cpp/examples/uduTest/bindings/cpp/examples/uduTest/lazy-sockets"]
-	path = bindings/cpp/examples/uduTest/bindings/cpp/examples/uduTest/lazy-sockets
-	url = https://github.com/HoboVR-Labs/lazy-sockets.git
