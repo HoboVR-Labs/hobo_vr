@@ -11,6 +11,15 @@
 // Common structs
 ////////////////////////////////////////////////////////////////////////////////
 
+static constexpr char KHoboVR_TrackingIdMessage[] = "hello\n";
+static constexpr char KHoboVR_ManagerIdMessage[]  = "monky\n";
+
+struct PacketEndTag {
+    char a;
+    char b;
+    char c;
+    // char d;
+};
 
 struct HoboVR_HapticResponse_t {
     char name[10]; // device name: "%c%d", device_type, id
@@ -43,7 +52,7 @@ typedef union {
 struct HoboVR_PoserResp_t {
     uint32_t type; // EHoboVR_PoserRespTypes enum
     HoboVR_RespData_t data;
-    char terminator[3];
+    PacketEndTag terminator;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -189,7 +198,7 @@ union HoboVR_ManagerData_t {
 struct HoboVR_ManagerMsg_t {
     uint32_t type; // EHoboVR_ManagerMsgTypes enum
     HoboVR_ManagerData_t data;
-    char terminator[3];
+    PacketEndTag terminator;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
