@@ -116,7 +116,7 @@ namespace hobovr {
 
 		}
 
-		virtual vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) {
+		inline virtual vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) {
 			m_unObjectId = unObjectId;
 			m_ulPropertyContainer =
 					vr::VRProperties()->TrackedDeviceToPropertyContainer(m_unObjectId);
@@ -220,7 +220,7 @@ namespace hobovr {
 			return vr::VRInitError_None;
 		}
 
-		virtual void PowerOff() {
+		inline virtual void PowerOff() {
 			// signal device is "aliven't"
 			vr::DriverPose_t pose;
 			pose.poseTimeOffset = 0;
@@ -233,7 +233,7 @@ namespace hobovr {
 			DriverLog("device: '%s' disconnected", m_sSerialNumber.c_str());
 		}
 
-		virtual void PowerOn() {
+		inline virtual void PowerOn() {
 			// signal device is "alive"
 			vr::DriverPose_t pose;
 			pose.poseTimeOffset = 0;
@@ -246,16 +246,16 @@ namespace hobovr {
 			DriverLog("device: '%s' connected", m_sSerialNumber.c_str());
 		}
 
-		virtual void Deactivate() {
+		inline virtual void Deactivate() {
 			DriverLog("device: \"%s\" deactivated\n", m_sSerialNumber.c_str());
 			PowerOff();
 			m_unObjectId = vr::k_unTrackedDeviceIndexInvalid;
 		}
 
-		virtual void EnterStandby() {}
+		inline virtual void EnterStandby() {}
 
 		/* debug request from a client, TODO: uh... actually implement this? */
-		virtual void DebugRequest(
+		inline virtual void DebugRequest(
 			const char *pchRequest,
 			char *pchResponseBuffer,
 			uint32_t unResponseBufferSize
@@ -265,12 +265,12 @@ namespace hobovr {
 				pchResponseBuffer[0] = 0;
 		}
 
-		virtual vr::DriverPose_t GetPose() {
+		inline virtual vr::DriverPose_t GetPose() {
 			vr::DriverPose_t tmp;
 			return tmp;
 		}
 
-		virtual void *GetComponent(
+		inline virtual void *GetComponent(
 			const char *pchComponentNameAndVersion
 		) {
 			for (auto &i : m_vComponents) {
@@ -292,11 +292,11 @@ namespace hobovr {
 			return NULL;
 		}
 
-		virtual std::string GetSerialNumber() const {
+		inline virtual std::string GetSerialNumber() const {
 			return m_sSerialNumber;
 		}
 
-		virtual void ProcessEvent(const vr::VREvent_t &vrEvent) {
+		inline virtual void ProcessEvent(const vr::VREvent_t &vrEvent) {
 			if constexpr(UseHaptics)
 			{
 				if (vrEvent.eventType == vr::VREvent_Input_HapticVibration) {
@@ -360,7 +360,7 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 			}
 		}
 
-		virtual void UpdateDeviceBatteryCharge() {
+		inline virtual void UpdateDeviceBatteryCharge() {
 			if constexpr(HasBattery) {
 				float fNewCharge = GetDeviceCharge(m_sSerialNumber);
 
@@ -390,7 +390,7 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 			}
 		}
 
-		virtual void CheckForUpdates() {
+		inline virtual void CheckForUpdates() {
 			bool shouldUpdate = checkForDeviceUpdates(m_sSerialNumber);
 
 			vr::VRProperties()->SetBoolProperty(
@@ -407,9 +407,12 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 
 		}
 
-		virtual void UpdateSectionSettings() {};
+		inline virtual void UpdateSectionSettings() {};
 
+		// these methods *have* to be overriden by the child
 		virtual void UpdateState(void* packet) = 0;
+		virtual size_t GetPacketSize() = 0;
+
 
 	protected:
 		// openvr api stuff

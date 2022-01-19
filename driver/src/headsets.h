@@ -18,13 +18,13 @@ class HeadsetDriver : public hobovr::HobovrDevice<false, false> {
 public:
     HeadsetDriver(std::string myserial);
 
-    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);
+    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) override;
 
-    void UpdateSectionSettings();
+    void UpdateSectionSettings() override;
 
     void UpdateState(void* data) override;
+    size_t GetPacketSize() override;
 
-    uint32_t get_packet_size();
 
 private:
     float m_flSecondsFromVsyncToPhotons;

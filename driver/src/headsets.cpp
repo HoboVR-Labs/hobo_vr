@@ -171,6 +171,6 @@ void HeadsetDriver::UpdateState(void* data) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-uint32_t HeadsetDriver::get_packet_size() {
+size_t HeadsetDriver::GetPacketSize() {
     return sizeof(HoboVR_HeadsetPose_t);
 }

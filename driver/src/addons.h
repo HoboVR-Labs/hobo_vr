@@ -22,15 +22,15 @@ class GazeMasterDriver: public hobovr::HobovrDevice<false, false> {
 public:
     GazeMasterDriver(std::string myserial);
 
-    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);
+    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) override;
 
     void UpdateState(void* data) override;
+    size_t GetPacketSize() override;
 
-    void PowerOff();
-    void PowerOn();
+    void PowerOff() override;
+    void PowerOn() override;
 
 
-    uint32_t get_packet_size();
 
 private:
 
@@ -58,6 +58,7 @@ public:
     SmileDriver(std::string myserial);
 
     void UpdateState(void* data) override;
+    size_t GetPacketSize() override;
 };
 
 #endif // #ifndef __HOBO_VR_ADDONS

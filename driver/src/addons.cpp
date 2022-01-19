@@ -124,6 +124,6 @@ void GazeMasterDriver::UpdateState(void* data) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-uint32_t GazeMasterDriver::get_packet_size() {
+size_t GazeMasterDriver::GetPacketSize() {
     return sizeof(HoboVR_GazeState_t);
 }

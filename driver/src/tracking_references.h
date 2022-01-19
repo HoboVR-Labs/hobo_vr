@@ -46,23 +46,23 @@ private:
 public:
     HobovrTrackingRef_SettManager(std::string myserial, std::shared_ptr<recvv::DriverReceiver> trk_s);
 
-    void OnPacket(char* buff, int len);
+    void OnPacket(void* buff, size_t len);
 
-    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);
+    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) override;
 
-    void Deactivate();
+    void Deactivate() override;
 
-    inline void EnterStandby() {}
+    inline void EnterStandby() override {}
 
-    void *GetComponent(const char *pchComponentNameAndVersion);
+    void *GetComponent(const char *pchComponentNameAndVersion) override;
 
     void DebugRequest(
         const char *pchRequest,
         char *pchResponseBuffer,
         uint32_t unResponseBufferSize
-    );
+    ) override;
 
-    vr::DriverPose_t GetPose();
+    vr::DriverPose_t GetPose() override;
 
     std::string GetSerialNumber() const;
 

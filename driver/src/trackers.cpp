@@ -84,6 +84,6 @@ void TrackerDriver::UpdateState(void* data) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-uint32_t TrackerDriver::get_packet_size() {
+size_t TrackerDriver::GetPacketSize() {
     return sizeof(HoboVR_TrackerPose_t);
 }

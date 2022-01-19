@@ -75,7 +75,7 @@ HobovrTrackingRef_SettManager::HobovrTrackingRef_SettManager(
 
 ///////////////////////////////////////////////////////////////////////////////////
 
-void HobovrTrackingRef_SettManager::OnPacket(char* buff, int len) {
+void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
 
     // DriverLog("AAAAAAAAAAAAAAA: PACKET %d %d", len, sizeof(HoboVR_ManagerMsg_t));
 
@@ -290,10 +290,10 @@ vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
         m_sRenderModelPath.c_str()
     );
 
-    DriverLog("device: tracking reference activated\n");
-    DriverLog("device: \tserial: %s\n", m_sSerialNumber.c_str());
-    DriverLog("device: \tmodel: %s\n", m_sModelNumber.c_str());
-    DriverLog("device: \trender model path: \"%s\"\n", m_sRenderModelPath.c_str());
+    DriverLog("tracking reference: Activate!\n");
+    DriverLog("tracking reference: \tserial: %s\n", m_sSerialNumber.c_str());
+    DriverLog("tracking reference: \tmodel: %s\n", m_sModelNumber.c_str());
+    DriverLog("tracking reference: \trender model path: \"%s\"\n", m_sRenderModelPath.c_str());
 
     // return a constant that's not 0 (invalid) or 1 (reserved for Oculus)
     vr::VRProperties()->SetUint64Property(
@@ -421,7 +421,7 @@ void HobovrTrackingRef_SettManager::DebugRequest(
     uint32_t unResponseBufferSize
 ) {
 
-    DriverLog("device: \"%s\" got a debug request: \"%s\"",
+    DriverLog("tracking reference: \"%s\" got a debug request: \"%s\"",
         m_sSerialNumber.c_str(),
         pchRequest
     );

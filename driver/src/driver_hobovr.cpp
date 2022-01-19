@@ -87,7 +87,7 @@ public:
 	virtual void EnterStandby() {}
 	virtual void LeaveStandby() {}
 	virtual void RunFrame() {}
-	void OnPacket(char* buff, int len);
+	void OnPacket(void* buff, size_t len);
 
 private:
 	void SlowUpdateThread();

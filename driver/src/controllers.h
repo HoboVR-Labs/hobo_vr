@@ -26,11 +26,11 @@ public:
         const std::shared_ptr<recvv::DriverReceiver> ReceiverObj
     );
 
-    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId);
+    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) override;
 
     void UpdateState(void* data) override;
+    size_t GetPacketSize() override;
 
-    uint32_t get_packet_size();
 
 private:
     vr::VRInputComponentHandle_t m_compGrip;
