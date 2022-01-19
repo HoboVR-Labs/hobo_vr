@@ -11,7 +11,7 @@
 ControllerDriver::ControllerDriver(
     bool side,
     std::string myserial,
-    const std::shared_ptr<recvv::DriverReceiver> ReceiverObj
+    const std::shared_ptr<hobovr::tcp_socket> ReceiverObj
 ): HobovrDevice(myserial, "hobovr_controller_m", ReceiverObj), m_bHandSide(side) {
 
     m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_controller_mc0";

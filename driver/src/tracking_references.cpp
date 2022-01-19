@@ -7,6 +7,7 @@
 #include "packets.h"
 
 #include <fstream>
+#include <errno.h>
 
 //-----------------------------------------------------------------------------
 // Purpose: settings manager using a tracking reference, this is meant to be
@@ -21,9 +22,8 @@
 
 
 HobovrTrackingRef_SettManager::HobovrTrackingRef_SettManager(
-    std::string myserial,
-    std::shared_ptr<recvv::DriverReceiver> trk_s
-): m_pOtherSocketComm(trk_s), m_sSerialNumber(myserial) {
+    std::string myserial
+): m_sSerialNumber(myserial) {
 
     _UduEvent = false;
 
@@ -37,25 +37,6 @@ HobovrTrackingRef_SettManager::HobovrTrackingRef_SettManager(
         "%s: settings manager created",
         m_sSerialNumber.c_str()
     );
-
-    // manager stuff
-    try {
-        m_pSocketComm = std::make_shared<recvv::DriverReceiver>(
-            sizeof(HoboVR_ManagerMsg_t),
-            6969,
-            "127.0.01",
-            "monky\n",
-            nullptr
-        );
-        m_pSocketComm->Start();
-    } catch (const std::exception& e) {
-        DriverLog(
-            "%s: failed to start receiver: %s",
-            m_sSerialNumber,
-            e.what()
-        );
-    }
-    m_pSocketComm->setCallback(this);
 
     m_Pose.poseTimeOffset = 0;
     m_Pose.result = vr::TrackingResult_Running_OK;
@@ -83,22 +64,24 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
         return; // do nothing if bad message
     }
 
+    DriverLog("tracking reference: got a packet lol");
+
     HoboVR_ManagerMsg_t* message = (HoboVR_ManagerMsg_t*)buff;
 
     switch (message->type) {
-        case EManagerMsgType_getTrkBuffSize: {
-            HoboVR_ManagerResp_t resp{
-                (uint32_t)(m_pOtherSocketComm->GetBufferSize()+3)
-            };
+        // case EManagerMsgType_getTrkBuffSize: {
+        //     HoboVR_ManagerResp_t resp{
+        //         (uint32_t)(m_pOtherSocketComm->GetBufferSize()+3)
+        //     };
 
-            m_pSocketComm->Send(
-                &resp,
-                sizeof(resp)
-            );
+        //     m_pSocketComm->Send(
+        //         &resp,
+        //         sizeof(resp)
+        //     );
 
-            DriverLog("tracking reference: queue for buffer size processed");
-            break;
-        }
+        //     DriverLog("tracking reference: queue for buffer size processed");
+        //     break;
+        // }
 
         case EManagerMsgType_ipd: {
             vr::VRSettings()->SetFloat(
@@ -117,22 +100,18 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
         }
 
         case EManagerMsgType_uduString: {
-            std::vector<std::string> temp;
+            std::string temp;
             for (int i=0; i < message->data.udu.len; i++) {
-                std::string p;
-
                 if (message->data.udu.devices[i] == 0)
-                    p = "h";
+                    temp += "h";
                 else if (message->data.udu.devices[i] == 1)
-                    p = "c";
+                    temp += "c";
                 else if (message->data.udu.devices[i] == 2)
-                    p = "t";
+                    temp += "t";
                 else if (message->data.udu.devices[i] == 3)
-                    p = "g";
-
-                temp.push_back(p);
+                    temp += "g";
             }
-            m_vpUduChangeBuffer = temp;
+            _vpUduChangeBuffer = temp;
 
             // vr::VREvent_Notification_t event_data = {20, 0};
             // vr::VRServerDriverHost()->VendorSpecificEvent(
@@ -272,6 +251,26 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
 vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
     vr::TrackedDeviceIndex_t unObjectId
 ) {
+    m_pSocketComm = std::make_unique<hobovr::tcp_socket>();
+
+    int res = m_pSocketComm->Connect("127.0.0.1", 6969);
+    if (res){
+        DriverLog("tracking reference: failed to connect: errno=%d\n", errno);
+        return vr::VRInitError_IPC_ServerInitFailed;
+    }
+
+    // send an id message saying this is a manager socket
+    res = m_pSocketComm->Send(KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage));
+
+    m_pReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
+        m_pSocketComm.get(),
+        &m_tag,
+        std::bind(&HobovrTrackingRef_SettManager::OnPacket, this, std::placeholders::_1, std::placeholders::_2)
+    );
+    m_pReceiver->Start();
+
+    DriverLog("tracking reference: receiver startup status: %d", m_pReceiver->IsAlive());
+
     m_unObjectId = unObjectId;
     m_ulPropertyContainer =
         vr::VRProperties()->TrackedDeviceToPropertyContainer(
@@ -385,7 +384,8 @@ vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
 ///////////////////////////////////////////////////////////////////////////////////
 
 void HobovrTrackingRef_SettManager::Deactivate() {
-    DriverLog("device: \"%s\" deactivated\n", m_sSerialNumber.c_str());
+    DriverLog("tracking reference: \"%s\" deactivated\n", m_sSerialNumber.c_str());
+    m_pReceiver->Stop();
     // "signal" device disconnected
     m_Pose.poseIsValid = false;
     m_Pose.deviceIsConnected = false;
@@ -457,11 +457,17 @@ void HobovrTrackingRef_SettManager::UpdatePose() {
 
 ///////////////////////////////////////////////////////////////////////////////////
 
-bool HobovrTrackingRef_SettManager::UduEvent() {
+bool HobovrTrackingRef_SettManager::GetUduEvent() {
     if (!_UduEvent)
         return false;
 
     _UduEvent = false; // consume a true call
-    DriverLog("settMang: consume call triggered");
+    DriverLog("tracking reference: consume call triggered");
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+
+std::string HobovrTrackingRef_SettManager::GetUduBuffer() {
+    return _vpUduChangeBuffer;
 }

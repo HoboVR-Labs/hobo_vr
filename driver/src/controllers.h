@@ -10,9 +10,6 @@
 #include "hobovr_device_base.h"
 #include "packets.h"
 
-#include "receiver.h"
-
-
 //-----------------------------------------------------------------------------
 // Purpose: controller device implementation
 //-----------------------------------------------------------------------------
@@ -23,7 +20,7 @@ public:
     ControllerDriver(
         bool side,
         std::string myserial,
-        const std::shared_ptr<recvv::DriverReceiver> ReceiverObj
+        const std::shared_ptr<hobovr::tcp_socket> ReceiverObj
     );
 
     vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) override;

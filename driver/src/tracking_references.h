@@ -12,8 +12,6 @@
 
 #include "hobovr_device_base.h"
 
-#include "receiver.h"
-
 //-----------------------------------------------------------------------------
 // Purpose: settings manager using a tracking reference, this is meant to be
 // a settings and other utility communication and management tool
@@ -38,13 +36,18 @@ enum HobovrTrackingRef_Msg_type
 
 // static std::vector<std::pair<std::string, int>> g_vpUduChangeBuffer;
 
-class HobovrTrackingRef_SettManager: public vr::ITrackedDeviceServerDriver, public recvv::Callback {
+class HobovrTrackingRef_SettManager: public vr::ITrackedDeviceServerDriver {
 private:
-  std::shared_ptr<recvv::DriverReceiver> m_pSocketComm;
-  std::shared_ptr<recvv::DriverReceiver> m_pOtherSocketComm;
+    PacketEndTag m_tag = {'\t', '\r', '\n'};
+    std::unique_ptr<hobovr::tcp_socket> m_pSocketComm;
+    std::unique_ptr<hobovr::tcp_receiver_loop> m_pReceiver;
+
 
 public:
-    HobovrTrackingRef_SettManager(std::string myserial, std::shared_ptr<recvv::DriverReceiver> trk_s);
+    HobovrTrackingRef_SettManager(std::string myserial);
+    inline virtual ~HobovrTrackingRef_SettManager() {
+        m_pReceiver->Stop();
+    }
 
     void OnPacket(void* buff, size_t len);
 
@@ -67,14 +70,13 @@ public:
     std::string GetSerialNumber() const;
 
     void UpdatePose();
-    bool UduEvent();
-
-public:
-    std::vector<std::string> m_vpUduChangeBuffer; // for passing udu data
+    bool GetUduEvent();
+    std::string GetUduBuffer();
 
 private:
     // interproc sync
     bool _UduEvent;
+    std::string _vpUduChangeBuffer; // for passing udu data
 
     // openvr api stuff
     vr::TrackedDeviceIndex_t m_unObjectId; // DO NOT TOUCH THIS, parent will handle this, use it as read only!

@@ -10,7 +10,7 @@
 
 TrackerDriver::TrackerDriver(
     std::string myserial,
-    const std::shared_ptr<recvv::DriverReceiver> ReceiverObj
+    const std::shared_ptr<hobovr::tcp_socket> ReceiverObj
 ): HobovrDevice(myserial, "hobovr_tracker_m", ReceiverObj) {
 
     m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_tracker_mt0";

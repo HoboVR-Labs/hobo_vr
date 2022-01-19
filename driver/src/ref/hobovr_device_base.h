@@ -9,7 +9,7 @@
 
 #include "hobovr_components.h"
 #include "packets.h"
-#include "receiver.h"
+#include <lazy_sockets.h>
 
 namespace hobovr {
 	static const char *const k_pch_Hobovr_PoseTimeOffset_Float = "PoseTimeOffset";
@@ -64,14 +64,17 @@ namespace hobovr {
 	// NOTE: this function needs to be thread safe, it will be ran every 5 seconds
 
 
+	using tcp_socket = lsc::LSocket<AF_INET, SOCK_STREAM, 0>;
+	using tcp_receiver_loop = lsc::ThreadedRecvLoop<AF_INET, SOCK_STREAM, 0, PacketEndTag>;
+
 	// should be publicly inherited
 	template<bool UseHaptics, bool HasBattery>
 	class HobovrDevice: public vr::ITrackedDeviceServerDriver {
 	public:
-		HobovrDevice(
+		inline HobovrDevice(
 			std::string myserial,
 			std::string deviceBreed,
-			const std::shared_ptr<recvv::DriverReceiver> commSocket=nullptr
+			std::shared_ptr<tcp_socket> commSocket=nullptr
 		): m_pBrodcastSocket(commSocket), m_sSerialNumber(myserial) {
 
 			m_unObjectId = vr::k_unTrackedDeviceIndexInvalid;
@@ -91,7 +94,7 @@ namespace hobovr {
 			DriverLog("device: pose time offset: %f\n", m_fPoseTimeOffset);
 
 			if (m_pBrodcastSocket == nullptr && UseHaptics)
-				DriverLog("communication socket object is not supplied and haptics are enabled, this device will break on back communication requests(e.g. haptics)\n");
+				DriverLog("no socket provided and haptics are enabled, this device will break on haptics\n");
 
 			// m_Pose.result = TrackingResult_Running_OK;
 			// m_Pose.poseTimeOffset = (double)m_fPoseTimeOffset;
@@ -107,7 +110,7 @@ namespace hobovr {
 			// m_Pose.shouldApplyHeadModel = false;
 		}
 
-		~HobovrDevice(){
+		inline ~HobovrDevice(){
 			for (auto &i : m_vComponents)
 				free(i.ptr_handle);
 
@@ -428,7 +431,7 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 		float m_fPoseTimeOffset; // time offset of the pose, set trough the config
 
 		// hobovr stuff
-		std::shared_ptr<recvv::DriverReceiver> m_pBrodcastSocket;
+		std::shared_ptr<tcp_socket> m_pBrodcastSocket;
 
 	private:
 		// openvr api stuff that i don't trust you to touch
