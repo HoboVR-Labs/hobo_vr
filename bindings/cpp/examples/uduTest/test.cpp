@@ -38,7 +38,10 @@ struct my_tracking2 {
 
 	PacketEndTag term;
 };
+
 using tcp_socket = lsc::LSocket<2, 1, 0>;
+
+static constexpr PacketEndTag my_tag = {'\t', '\r', '\n'};
 
 static HoboVR_ManagerMsgUduString_t data1 = {
 	// 7,
@@ -55,7 +58,7 @@ static HoboVR_ManagerMsgUduString_t data1 = {
 static HoboVR_ManagerMsg_t device_list1 = {
 	EManagerMsgType_uduString,
 	(HoboVR_ManagerData_t&)data1,
-	{'\t', '\r', '\n'}
+	my_tag
 };
 
 static std::mutex io_mutex;
@@ -153,13 +156,6 @@ void manager_thread(tcp_socket* soc, int* other, int* other2, bool* alive, bool*
 
 			printf("manager: udu shit\n");
 
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
 			res = manager_sock.Send(&device_list1, sizeof(device_list1));
 			if (res < 0) {
 				break; // we dead in this case
