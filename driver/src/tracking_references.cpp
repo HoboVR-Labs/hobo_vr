@@ -60,7 +60,15 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
 
     // DriverLog("AAAAAAAAAAAAAAA: PACKET %d %d", len, sizeof(HoboVR_ManagerMsg_t));
 
-    if (len != sizeof(HoboVR_ManagerMsg_t)) {
+    // yeah dumb ass, it was this stupid of a fix
+    if (len != sizeof(HoboVR_ManagerMsg_t) - sizeof(PacketEndTag)) {
+        DriverLog("tracking reference: bad message");
+        HoboVR_ManagerResp_t resp{EManagerResp_invalid};
+        m_pSocketComm->Send(
+            &resp,
+            sizeof(resp)
+        );
+
         return; // do nothing if bad message
     }
 
