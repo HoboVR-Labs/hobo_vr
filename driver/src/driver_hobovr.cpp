@@ -157,50 +157,8 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 }
 
 void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
-	if (len == m_luPacketSize && !m_bDeviceListSyncEvent) {
-		uint32_t buff_offset = 0;
 
-		// need that + op no cap
-		char* buff2 = (char*)buff;
-
-		for (size_t i=0; i < m_vDevices.size(); i++){
-			switch (m_vDevices[i].type) {
-				case EHobovrDeviceNodeTypes::hmd: {
-					HeadsetDriver* device = (HeadsetDriver*)m_vDevices[i].handle;
-					device->UpdateState(buff2 + buff_offset);
-
-					buff_offset += device->GetPacketSize();
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::controller: {
-					ControllerDriver* device = (ControllerDriver*)m_vDevices[i].handle;
-					device->UpdateState(buff2 + buff_offset);
-
-					buff_offset += device->GetPacketSize();
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::tracker: {
-					TrackerDriver* device = (TrackerDriver*)m_vDevices[i].handle;
-					device->UpdateState(buff2 + buff_offset);
-
-					buff_offset += device->GetPacketSize();
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::gaze_master: {
-					GazeMasterDriver* device = (GazeMasterDriver*)m_vDevices[i].handle;
-					device->UpdateState(buff2 + buff_offset);
-
-					buff_offset += device->GetPacketSize();
-					break;
-				}
-			}
-		}
-
-		// DriverLog("got data: %f %f %f %d", meh[0], meh[1], meh[2], len);
-	} else {
+	if (len != m_luPacketSize) {
 		// tell the poser it fucked up
 		// TODO: make different responses for different fuck ups...
 		// 							and detect different fuck ups
@@ -224,7 +182,56 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 			(int)len
 		);
 
+		return; // do nothing on bad messages
 	}
+
+	if (m_bDeviceListSyncEvent)
+		return; // sync in progress, do nothing
+
+
+	uint32_t buff_offset = 0;
+
+	// need that + op no cap
+	char* buff2 = (char*)buff;
+
+	for (size_t i=0; i < m_vDevices.size(); i++){
+		switch (m_vDevices[i].type) {
+			case EHobovrDeviceNodeTypes::hmd: {
+				HeadsetDriver* device = (HeadsetDriver*)m_vDevices[i].handle;
+				device->UpdateState(buff2 + buff_offset);
+
+				buff_offset += device->GetPacketSize();
+				break;
+			}
+
+			case EHobovrDeviceNodeTypes::controller: {
+				ControllerDriver* device = (ControllerDriver*)m_vDevices[i].handle;
+				device->UpdateState(buff2 + buff_offset);
+
+				buff_offset += device->GetPacketSize();
+				break;
+			}
+
+			case EHobovrDeviceNodeTypes::tracker: {
+				TrackerDriver* device = (TrackerDriver*)m_vDevices[i].handle;
+				device->UpdateState(buff2 + buff_offset);
+
+				buff_offset += device->GetPacketSize();
+				break;
+			}
+
+			case EHobovrDeviceNodeTypes::gaze_master: {
+				GazeMasterDriver* device = (GazeMasterDriver*)m_vDevices[i].handle;
+				device->UpdateState(buff2 + buff_offset);
+
+				buff_offset += device->GetPacketSize();
+				break;
+			}
+		}
+	}
+
+	// DriverLog("got data: %f %f %f %d", meh[0], meh[1], meh[2], len);
+
 
 }
 
