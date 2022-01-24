@@ -256,28 +256,24 @@ void CServerDriver_hobovr::Cleanup() {
 		switch (i.type) {
 			case EHobovrDeviceNodeTypes::hmd: {
 				HeadsetDriver* device = (HeadsetDriver*)i.handle;
-				device->PowerOff();
 				free(device);
 				break;
 			}
 
 			case EHobovrDeviceNodeTypes::controller: {
 				ControllerDriver* device = (ControllerDriver*)i.handle;
-				device->PowerOff();
 				free(device);
 				break;
 			}
 
 			case EHobovrDeviceNodeTypes::tracker: {
 				TrackerDriver* device = (TrackerDriver*)i.handle;
-				device->PowerOff();
 				free(device);
 				break;
 			}
 
 			case EHobovrDeviceNodeTypes::gaze_master: {
 				GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
-				device->PowerOff();
 				free(device);
 				break;
 			}
