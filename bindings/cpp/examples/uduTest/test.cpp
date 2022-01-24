@@ -8,7 +8,6 @@
 #include <lazy_sockets.h>
 #include <unistd.h>
 
-#include <errno.h>
 #include <thread>
 #include <cmath>
 #include <memory>
@@ -44,136 +43,16 @@ using tcp_socket = lsc::LSocket<2, 1, 0>;
 static constexpr PacketEndTag my_tag = {'\t', '\r', '\n'};
 
 static HoboVR_ManagerMsgUduString_t data1 = {
-	// 7,
 	6,
-	// EDeviceType_headset,
 	EDeviceType_controller,
 	EDeviceType_controller,
 	EDeviceType_tracker,
 	EDeviceType_tracker,
 	EDeviceType_tracker,
-	EDeviceType_gazeMaster,
+	EDeviceType_gazeMaster
 };
 
-static HoboVR_ManagerMsg_t device_list1 = {
-	EManagerMsgType_uduString,
-	(HoboVR_ManagerData_t&)data1,
-	my_tag
-};
-
-static std::mutex io_mutex;
-
-void manager_thread(tcp_socket* soc, int* other, int* other2, bool* alive, bool* udu) {
-
-	char buff[1024];
-	int res;
-
-	res = soc->Accept();
-	if (res < 0) {
-		printf("manager failed to accept: %d\n", errno);
-		return;
-	}
-
-	int soc_fd = res;
-
-	res = recv(res, buff, sizeof(KHoboVR_ManagerIdMessage), 0);
-
-	int manager_fd;
-	
-	{
-		std::lock_guard<std::mutex> lk(io_mutex); // lock others
-
-		if (
-			memcmp(buff, KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage)) == 0
-		) {
-			manager_fd = soc_fd;
-		} else {
-			manager_fd = -1;
-			*other2 = soc_fd;
-		}
-	}
-
-
-	std::this_thread::sleep_for(
-		std::chrono::milliseconds(1)
-	);
-
-	if (manager_fd == -1) {
-		std::lock_guard<std::mutex> lk(io_mutex); // lock others
-		manager_fd = *other;
-	}
-
-	printf("manager: socket fd: %d\n", manager_fd);
-
-	// create a lazy socket for manager
-	tcp_socket manager_sock(manager_fd, lsc::EStat_connected);
-
-	printf("manager: trying to sync device list...\n");
-
-	while (1) {
-		res = manager_sock.Send(&device_list1, sizeof(device_list1));
-		if (res != sizeof(device_list1))
-			printf("manager: failed to send device list...\n");
-
-		if (res < 0) {
-			printf("manager: resp=%d errno=%d\n", res, errno);
-			return; // we dead in this case
-		}
-
-		printf("manager: device list sent, waiting for response...\n");
-
-		res = manager_sock.Recv(
-			buff,
-			sizeof(HoboVR_ManagerResp_t)
-		);
-		if (res == sizeof(HoboVR_ManagerResp_t))
-			break;
-
-
-		HoboVR_ManagerResp_t* data = (HoboVR_ManagerResp_t*)buff;
-		printf("manager: response %d %d\n", (int)(data->status), res);
-
-		if ((int)data->status == EManagerResp_ok) {
-			printf("manager: finished syncing device lists\n");
-			break;
-		}
-	}
-
-	*udu = false;
-
-	printf("manager: starting thread...\n");
-
-	while (*alive) {
-		res = manager_sock.Recv(buff, sizeof(buff), lsc::ERecv_nowait);
-
-		if (res < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno) {
-			break; // we dead in this case
-		}
-
-		if (*udu) {
-			std::lock_guard<std::mutex> lk(io_mutex); // lock others
-			*udu = false;
-
-			printf("manager: udu shit\n");
-
-			res = manager_sock.Send(&device_list1, sizeof(device_list1));
-			if (res < 0) {
-				break; // we dead in this case
-			}
-
-			res = manager_sock.Recv(buff, sizeof(HoboVR_ManagerResp_t));
-			if (res < 0) break;
-
-			HoboVR_ManagerResp_t* man_resp = (HoboVR_ManagerResp_t*)buff;
-			printf("manager responded: %d\n", (int)man_resp->status);
-		}
-
-		std::this_thread::sleep_for(
-			std::chrono::milliseconds(16)
-		);
-	}
-	printf("manager: exit resp=%d errno=%d\n", res, errno);
-}
+static HoboVR_ManagerMsg_t device_list1 = {EManagerMsgType_uduString, (HoboVR_ManagerData_t&)data1, my_tag};
 
 int main()
 {
@@ -185,76 +64,58 @@ int main()
 	res = binder.Listen(2);
 	if (res) return -errno;
 
-	bool send_packet_sync = true;
-	bool alive = true;
 
-	int other;
-	int other2;
+	// accept sockets
+	lsc::lsocket_t sockA = binder.Accept();
+	if (sockA == lsc::EAccept_error) return -errno;
 
-	res = binder.Accept();
+
+
+	lsc::lsocket_t sockB = binder.Accept();
+	if (sockB == lsc::EAccept_error) return -errno;
+
+	// id sockets
+	char buffA[32];
+	char buffB[32];
+
+	res = recv(sockA, buffA, sizeof(KHoboVR_TrackingIdMessage), 0);
+	if (res < 0) return -errno;
+	res = recv(sockB, buffB, sizeof(KHoboVR_ManagerIdMessage), 0);
 	if (res < 0) return -errno;
 
-	int soc_fd = res;
+	lsc::lsocket_t tracking_fd, manager_fd;
 
-	char buffA[32];
-	res = recv(res, buffA, sizeof(KHoboVR_TrackingIdMessage), 0);
-
-	int tracking_fd;
-
-
-	{
-		std::lock_guard<std::mutex> lk(io_mutex); // lock others
-
-		if (
-			memcmp(buffA, KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage)) == 0
-		) {
-			tracking_fd = soc_fd;
-		} else {
-			tracking_fd = -1;
-			other = soc_fd;
-		}
+	if (
+		!memcmp(buffA, KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage)) &&
+		!memcmp(buffB, KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage))
+	) {
+		tracking_fd = sockA;
+		manager_fd = sockB;
+	} else if (
+		!memcmp(buffB, KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage)) &&
+		!memcmp(buffA, KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage))
+	) {
+		tracking_fd = sockB;
+		manager_fd = sockA;
+	} else {
+		printf("failed to ID sockets\n");
+		return -EBADMSG;
 	}
 
-	// pass the binder to the manager thread
-	std::thread man(manager_thread, &binder, &other, &other2, &alive, &send_packet_sync);
-
-	if (tracking_fd == -1) {
-		std::lock_guard<std::mutex> lk(io_mutex); // lock others
-		tracking_fd = other2;
-	}
-
-	printf("tracking fd: %d\n", tracking_fd);
-
-
+	// init lazy_socket objects
 	tcp_socket tracking_sock(tracking_fd, lsc::EStat_connected);
-
-	//////////////////////////////////////////////////////////////////////
-	// now its time for runtime
-	//////////////////////////////////////////////////////////////////////
-
-	while (send_packet_sync)
-		std::this_thread::sleep_for(
-			std::chrono::seconds(1)
-		);
-
-	char recv_buffer[1024];
+	tcp_socket manager_sock(manager_fd, lsc::EStat_connected);
 
 	printf("starting tracking loop...\n");
 	printf("device list size: %lu\n", sizeof(my_tracking));
+
+	char recv_buffer[256];
 
 	int h = 0;
 
 	while (1) {
 		my_tracking my_packet;
-		// memcpy(&my_packet.term[0], "\t\r\n", 3);
 		my_packet.term = {'\t', '\r', '\n'};
-
-		// my_packet.h1 = {
-		// 	{0, 0, 0},
-		// 	{1, 0, 0, 0},
-		// 	{(float)(h % 10 / 10.0f), 0, 0},
-		// 	{0, 0, 0}
-		// };
 
 		// provide "tracking" data
 		my_packet.c1 = {
@@ -314,25 +175,56 @@ int main()
 		// );
 
 		res = tracking_sock.Send(&my_packet, sizeof(my_packet));
-		if (res < 0) {
-			printf("resp=%d errno=%d\n", res, errno);
+		if (res <= 0) {
+			printf("failed to send tracking packet...\n");
 			break; // we dead in this case
 		}
 
 		res = tracking_sock.Recv(recv_buffer, sizeof(HoboVR_PoserResp_t), lsc::ERecv_nowait);
 		if (res < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno) {
-			printf("2 resp=%d errno=%d\n", res, errno);
+			printf("failled recv tracking response\n");
 			break; // we dead in this case
 		}
 
 		if (res > 0) {
 			HoboVR_PoserResp_t* data = (HoboVR_PoserResp_t*)recv_buffer;
-			// printf("poser response: %d %d\n", (int)data->type, res);
+			printf("poser response: %d %d\n", (int)data->type, res);
 			if ((int)data->type == EPoserRespType_badDeviceList) {
-				printf("poser reported device list size: %d, actual: %lu\n", data->data.buf_size.size, sizeof(my_tracking));
-				std::lock_guard<std::mutex> lk(io_mutex); // lock others
-				send_packet_sync = true;
+				printf(
+					"driver reported device packet size: %d, actual: %lu\n",
+					data->data.buf_size.size,
+					sizeof(my_tracking)
+				);
+				
+				// send device list
+
+				for (;;) {
+
+					res = manager_sock.Send(&device_list1, sizeof(device_list1));
+					if (res != sizeof(device_list1))
+						printf("failed to send device list...\n");
+
+					res = manager_sock.Recv(recv_buffer, sizeof(HoboVR_ManagerResp_t));
+					if (res <= 0) {
+						printf("failed to recv manager response...\n");
+						return -ENOMSG;
+					}
+
+					HoboVR_ManagerResp_t* manager_resp = (HoboVR_ManagerResp_t*)recv_buffer;
+					printf("manager responded: %d\n", (int)manager_resp->status);
+
+					if ((int)manager_resp->status == EManagerResp_ok)
+						break; // everything ok, we can exit the loop
+				}
+
+				printf("everything ok, continuing tracking...\n");
+
+			} else if ((int)data->type == EPoserRespType_driverShutdown) {
+				printf("driver shutting down, we need to exit too\n");
+				break;
+
 			}
+
 		}
 
 		h++;
@@ -342,10 +234,8 @@ int main()
 		);
 	}
 
-	printf("3 resp=%d errno=%d\n", res, errno);
+	printf("resp=%d errno=%d\n", res, errno);
 
-	alive = false;
-	man.join();
 
 	return 0;
 }
