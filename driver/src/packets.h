@@ -33,6 +33,8 @@ enum EHoboVR_PoserRespTypes {
 
     EPoserRespType_badDeviceList = 10, // poser fucked up, data is HoboVR_RespBufSize_t
 
+    EPoserRespType_driverShutdown = 20, // driver shutdown was called, poser needs to exit
+
     EPoserRespType_max
 };
 

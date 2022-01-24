@@ -238,6 +238,16 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 void CServerDriver_hobovr::Cleanup() {
 	DriverLog("driver cleanup called");
 	m_bThreadAlive = false;
+
+	HoboVR_RespReserved_t fake_data;
+
+	HoboVR_PoserResp_t resp{
+		EPoserRespType_driverShutdown,
+		(HoboVR_RespData_t&)fake_data,
+		m_tag
+	};
+	m_lscSocket->Send(&resp, sizeof(resp));
+
 	m_ptSlowUpdateThread->join();
 	m_ptFastThread->join();
 	m_pReceiver->Stop();
