@@ -5,15 +5,14 @@ namespace hobovr {
 	// le version
 	static const uint32_t k_nHobovrVersionMajor = 0;
 	static const uint32_t k_nHobovrVersionMinor = 7;
-	static const uint32_t k_nHobovrVersionBuild = 5;
-	static const std::string k_sHobovrVersionGG = "no way home";
+	static const uint32_t k_nHobovrVersionBuild = 7;
+	static const std::string k_sHobovrVersionGG = "deep dark";
 
 } // namespace hobovr
 
 // keys for use with the settings API
 // driver keys
 static const char *const k_pch_Hobovr_Section = "driver_hobovr";
-static const char *const k_pch_Hobovr_UduDeviceManifestList_String = "uduSettings";
 
 // hmd device keys
 static const char *const k_pch_Hmd_Section = "hobovr_device_hmd";
