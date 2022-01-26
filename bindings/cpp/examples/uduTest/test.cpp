@@ -6,14 +6,14 @@
 #include <stdlib.h>
 
 #include <lazy_sockets.h>
-#include <unistd.h>
+// #include <unistd.h>
 
 #include <thread>
 #include <cmath>
 #include <memory>
 #include <mutex>
 
-#include <sys/select.h>
+// #include <sys/select.h>
 
 #include "packets.h"
 
@@ -107,7 +107,7 @@ int main()
 	tcp_socket manager_sock(manager_fd, lsc::EStat_connected);
 
 	printf("starting tracking loop...\n");
-	printf("device list size: %lu\n", sizeof(my_tracking));
+	printf("device list size: %lu\n", (unsigned	long)sizeof(my_tracking));
 
 	char recv_buffer[256];
 
@@ -159,7 +159,7 @@ int main()
 
 		my_packet.g1 = {
 			EGazeStatus_rightEyeLost,
-			0.01,
+			0.01f,
 			{0, 0},
 			{0, 0},
 			{1, 0, 0, 0},
@@ -193,7 +193,7 @@ int main()
 				printf(
 					"driver reported device packet size: %d, actual: %lu\n",
 					data->data.buf_size.size,
-					sizeof(my_tracking)
+					(unsigned long)sizeof(my_tracking)
 				);
 				
 				// send device list
