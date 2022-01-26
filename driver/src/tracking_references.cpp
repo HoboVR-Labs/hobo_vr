@@ -165,10 +165,10 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
         }
 
         case EManagerMsgType_distortion: {
-            float newK1 = message->data.distortion.k1;
-            float newK2 = message->data.distortion.k2;
-            float newZoomW = message->data.distortion.zoom_width;
-            float newZoomH = message->data.distortion.zoom_height;
+            float newK1 = (float)message->data.distortion.k1;
+            float newK2 = (float)message->data.distortion.k2;
+            float newZoomW = (float)message->data.distortion.zoom_width;
+            float newZoomH = (float)message->data.distortion.zoom_height;
 
             vr::VRSettings()->SetFloat(
                 hobovr::k_pch_ExtDisplay_Section,
@@ -221,7 +221,7 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
         }
 
         case EManagerMsgType_poseTimeOffset: {
-            float newTimeOffset = message->data.time_offset.time_offset_seconds;
+            float newTimeOffset = (float)message->data.time_offset.time_offset_seconds;
 
             vr::VRSettings()->SetFloat(
                 k_pch_Hobovr_Section,

@@ -189,7 +189,7 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 		return; // sync in progress, do nothing
 
 
-	uint32_t buff_offset = 0;
+	size_t buff_offset = 0;
 
 	// need that + op no cap
 	char* buff2 = (char*)buff;
@@ -239,7 +239,7 @@ void CServerDriver_hobovr::Cleanup() {
 	DriverLog("driver cleanup called");
 	m_bThreadAlive = false;
 
-	HoboVR_RespReserved_t fake_data;
+	HoboVR_RespReserved_t fake_data = {};
 
 	HoboVR_PoserResp_t resp{
 		EPoserRespType_driverShutdown,

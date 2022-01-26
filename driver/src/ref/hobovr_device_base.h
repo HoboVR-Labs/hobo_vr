@@ -11,6 +11,14 @@
 #include "packets.h"
 #include <lazy_sockets.h>
 
+#include <string.h>
+#ifdef WIN
+	#define snprintf _snprintf
+	#define vsnprintf _vsnprintf
+	#define strcasecmp _stricmp
+	#define strncasecmp _strnicmp
+#endif // #ifdef WIN
+
 namespace hobovr {
 	static const char *const k_pch_Hobovr_PoseTimeOffset_Float = "PoseTimeOffset";
 	static const char *const k_pch_Hobovr_UpdateUrl_String = "ManualUpdateURL";

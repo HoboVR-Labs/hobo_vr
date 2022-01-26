@@ -53,7 +53,7 @@ message(STATUS "Compilation set for ${HOBOVR_PROCESSOR_ARCH}bit architectures.")
 # Get platform.
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(PLATFORM_NAME "linux")
-  add_definitions(-DLINUX -DPOSIX)
+  add_definitions(-DLINUX)
 
   if(HOBOVR_PROCESSOR_ARCH MATCHES "64")
       add_definitions(-DLINUX64)
@@ -63,7 +63,7 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(PLATFORM_NAME "win")
-  add_definitions(-D_WINDOWS)
+  add_definitions(-DWIN)
 
   # Binaries path for thirdparties are not generics so we try to guess their suffixes.
   set(WINDOWS_PATH_SUFFIXES win${HOBOVR_PROCESSOR_ARCH} Win${HOBOVR_PROCESSOR_ARCH} x${HOBOVR_PROCESSOR_ARCH})
