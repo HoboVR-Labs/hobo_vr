@@ -11,7 +11,6 @@
 #include "driverlog.h"
 
 #include <lazy_sockets.h>
-#include <errno.h>
 
 #include <chrono>
 #include <thread>
@@ -133,7 +132,7 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 
 	int res = m_lscSocket->Connect("127.0.0.1", 6969);
 	if (res) {
-		DriverLog("driver: failed to connect: errno=%d", errno);
+		DriverLog("driver: failed to connect: errno=%d", lerrno);
 		return VRInitError_IPC_ServerInitFailed;
 	}
 
@@ -141,8 +140,8 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 	m_lscSocket->Send(KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage));
 
 	m_pReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
-		m_lscSocket.get(),
-		&m_tag,
+		m_lscSocket,
+		m_tag,
 		std::bind(&CServerDriver_hobovr::OnPacket, this, std::placeholders::_1, std::placeholders::_2),
 		16
 	);
@@ -237,10 +236,11 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 
 void CServerDriver_hobovr::Cleanup() {
 	DriverLog("driver cleanup called");
+	// set slow/fast thread alive signals to exit
 	m_bThreadAlive = false;
 
+	// send a "driver exit" notification to the poser
 	HoboVR_RespReserved_t fake_data = {};
-
 	HoboVR_PoserResp_t resp{
 		EPoserRespType_driverShutdown,
 		(HoboVR_RespData_t&)fake_data,
@@ -248,8 +248,13 @@ void CServerDriver_hobovr::Cleanup() {
 	};
 	m_lscSocket->Send(&resp, sizeof(resp));
 
+	// release ownership to signal the receiver thread to finish
+	m_lscSocket.reset();
+
 	m_ptSlowUpdateThread->join();
 	m_ptFastThread->join();
+
+	// call stop to make sure the receiver thread has joined
 	m_pReceiver->Stop();
 
 	for (auto& i : m_vDevices) {

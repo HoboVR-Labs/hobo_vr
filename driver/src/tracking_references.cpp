@@ -7,7 +7,6 @@
 #include "packets.h"
 
 #include <fstream>
-#include <errno.h>
 
 //-----------------------------------------------------------------------------
 // Purpose: settings manager using a tracking reference, this is meant to be
@@ -259,11 +258,11 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
 vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
     vr::TrackedDeviceIndex_t unObjectId
 ) {
-    m_pSocketComm = std::make_unique<hobovr::tcp_socket>();
+    m_pSocketComm = std::make_shared<hobovr::tcp_socket>();
 
     int res = m_pSocketComm->Connect("127.0.0.1", 6969);
     if (res){
-        DriverLog("tracking reference: failed to connect: errno=%d\n", errno);
+        DriverLog("tracking reference: failed to connect: errno=%d\n", lerrno);
         return vr::VRInitError_IPC_ServerInitFailed;
     }
 
@@ -271,8 +270,8 @@ vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
     res = m_pSocketComm->Send(KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage));
 
     m_pReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
-        m_pSocketComm.get(),
-        &m_tag,
+        m_pSocketComm,
+        m_tag,
         std::bind(&HobovrTrackingRef_SettManager::OnPacket, this, std::placeholders::_1, std::placeholders::_2)
     );
     m_pReceiver->Start();
@@ -393,6 +392,9 @@ vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
 
 void HobovrTrackingRef_SettManager::Deactivate() {
     DriverLog("tracking reference: \"%s\" deactivated\n", m_sSerialNumber.c_str());
+    // release ownership to signal receiver to finish
+    m_pSocketComm.reset();
+
     m_pReceiver->Stop();
     // "signal" device disconnected
     m_Pose.poseIsValid = false;

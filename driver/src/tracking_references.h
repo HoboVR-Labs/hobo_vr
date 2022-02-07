@@ -39,7 +39,7 @@ enum HobovrTrackingRef_Msg_type
 class HobovrTrackingRef_SettManager: public vr::ITrackedDeviceServerDriver {
 private:
     PacketEndTag m_tag = {'\t', '\r', '\n'};
-    std::unique_ptr<hobovr::tcp_socket> m_pSocketComm;
+    std::shared_ptr<hobovr::tcp_socket> m_pSocketComm;
     std::unique_ptr<hobovr::tcp_receiver_loop> m_pReceiver;
 
 
