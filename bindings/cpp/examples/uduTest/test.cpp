@@ -59,29 +59,29 @@ int main()
 	tcp_socket binder;
 
 	int res = binder.Bind("0.0.0.0", 6969);
-	if (res) return -errno;
+	if (res) return -lerrno;
 
 	res = binder.Listen(2);
-	if (res) return -errno;
+	if (res) return -lerrno;
 
 
 	// accept sockets
 	lsc::lsocket_t sockA = binder.Accept();
-	if (sockA == lsc::EAccept_error) return -errno;
+	if (sockA == lsc::EAccept_error) return -lerrno;
 
 
 
 	lsc::lsocket_t sockB = binder.Accept();
-	if (sockB == lsc::EAccept_error) return -errno;
+	if (sockB == lsc::EAccept_error) return -lerrno;
 
 	// id sockets
 	char buffA[32];
 	char buffB[32];
 
 	res = recv(sockA, buffA, sizeof(KHoboVR_TrackingIdMessage), 0);
-	if (res < 0) return -errno;
+	if (res < 0) return -lerrno;
 	res = recv(sockB, buffB, sizeof(KHoboVR_ManagerIdMessage), 0);
-	if (res < 0) return -errno;
+	if (res < 0) return -lerrno;
 
 	lsc::lsocket_t tracking_fd, manager_fd;
 
@@ -181,7 +181,7 @@ int main()
 		}
 
 		res = tracking_sock.Recv(recv_buffer, sizeof(HoboVR_PoserResp_t), lsc::ERecv_nowait);
-		if (res < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno) {
+		if (res < 0 && lerrno != EAGAIN && lerrno != EWOULDBLOCK && lerrno) {
 			printf("failled recv tracking response\n");
 			break; // we dead in this case
 		}
@@ -234,7 +234,7 @@ int main()
 		);
 	}
 
-	printf("resp=%d errno=%d\n", res, errno);
+	printf("resp=%d lerrno=%d\n", res, lerrno);
 
 
 	return 0;
