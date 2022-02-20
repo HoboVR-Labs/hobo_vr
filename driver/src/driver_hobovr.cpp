@@ -104,8 +104,8 @@ private:
 	size_t m_luPacketSize = 16;
 	PacketEndTag m_tag = {'\t', '\r', '\n'};
 	std::shared_ptr<hobovr::tcp_socket> m_lscSocket;
-	std::shared_ptr<hobovr::tcp_receiver_loop> m_pReceiver;
-	std::shared_ptr<HobovrTrackingRef_SettManager> m_pSettManTref;
+	std::unique_ptr<hobovr::tcp_receiver_loop> m_pReceiver;
+	std::unique_ptr<HobovrTrackingRef_SettManager> m_pSettManTref;
 
 	bool m_bDeviceListSyncEvent = false;
 
@@ -146,6 +146,14 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 		16
 	);
 	m_pReceiver->Start();
+
+	// create manager now
+	m_pSettManTref = std::make_unique<HobovrTrackingRef_SettManager>("trsm0");
+	vr::VRServerDriverHost()->TrackedDeviceAdded(
+		m_pSettManTref->GetSerialNumber().c_str(),
+		vr::TrackedDeviceClass_TrackingReference,
+		m_pSettManTref.get()
+	);
 
 	// misc slow and fast threads
 	m_bThreadAlive = true;
@@ -248,14 +256,9 @@ void CServerDriver_hobovr::Cleanup() {
 	};
 	m_lscSocket->Send(&resp, sizeof(resp));
 
-	// release ownership to signal the receiver thread to finish
-	m_lscSocket.reset();
 
 	m_ptSlowUpdateThread->join();
 	m_ptFastThread->join();
-
-	// call stop to make sure the receiver thread has joined
-	m_pReceiver->Stop();
 
 	for (auto& i : m_vDevices) {
 		switch (i.type) {
@@ -316,20 +319,19 @@ void CServerDriver_hobovr::Cleanup() {
 	m_vDevices.clear();
 	m_vStandbyDevices.clear();
 
+
+	// release ownership to signal the receiver thread to finish
+	m_lscSocket.reset();
+
+	// call stop to make sure the receiver thread has joined
+	m_pReceiver->Stop();
+
 	CleanupDriverLog();
 	VR_CLEANUP_SERVER_DRIVER_CONTEXT();
 }
 
 void CServerDriver_hobovr::FastThread() {
 	DriverLog("FastThread started");
-
-	// settings manager, yes its created by the fast thread now, TOO BAD!
-	m_pSettManTref = std::make_shared<HobovrTrackingRef_SettManager>("trsm0");
-	vr::VRServerDriverHost()->TrackedDeviceAdded(
-		m_pSettManTref->GetSerialNumber().c_str(),
-		vr::TrackedDeviceClass_TrackingReference,
-		m_pSettManTref.get()
-	);
 
 	while (m_bThreadAlive) {
 		// check of incoming udu events
