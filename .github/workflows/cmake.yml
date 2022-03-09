@@ -39,6 +39,14 @@ jobs:
     - name: Install
       # Install the built driver into it's directory
       run: cmake --install ${{github.workspace}}/build
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: driver-build
+        path: |
+          hobovr
+          !hobovr/**/*.md
 
     - name: Test
       working-directory: ${{github.workspace}}/build
