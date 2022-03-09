@@ -1,6 +1,14 @@
 # HoboVR
 The compiled driver that SteamVR loads to connect to headsets.
 
+## dev version setup
+There will be 2 scripts present in the dev builds of this driver,
+`register_driver.sh`(or `.bat` depending on the platform) and `unregister_driver`(or `.bat` depending on the platform)
+
+Run `register_driver.sh`(or `.bat` depending on the platform) to register the driver with SteamVR
+
+Run `unregister_driver.sh`(or `.bat` depending on the platform) to unregister the driver with SteamVR
+
 ## bin
 Contains the compiled driver. Both 32 bit and 64 bit drivers are needed.
 
