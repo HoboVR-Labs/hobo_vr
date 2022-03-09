@@ -61,6 +61,8 @@ int main()
 	int res = binder.Bind("0.0.0.0", 6969);
 	if (res) return -lerrno;
 
+	printf("waiting for driver to connect...\n");
+
 	res = binder.Listen(2);
 	if (res) return -lerrno;
 
@@ -98,6 +100,18 @@ int main()
 		tracking_fd = sockB;
 		manager_fd = sockA;
 	} else {
+		printf("buffA: '%s' == '%s' => %d,%d\n",
+			buffA,
+			KHoboVR_TrackingIdMessage,
+			memcmp(buffA, KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage)),
+			memcmp(buffA, KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage))
+		);
+		printf("buffB: '%s' == '%s' => %d,%d\n",
+			buffB,
+			KHoboVR_ManagerIdMessage,
+			memcmp(buffB, KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage)),
+			memcmp(buffB, KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage))
+		);
 		printf("failed to ID sockets\n");
 		return -EBADMSG;
 	}
