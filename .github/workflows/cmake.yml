@@ -27,25 +27,41 @@ jobs:
     - name: Clone submodules
       run: git submodule init && git submodule update
 
-    - name: Configure CMake
+    - name: Configure Driver CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: cmake driver -B ${{github.workspace}}/driver_build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
-    - name: Build
+    - name: Build Driver
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/driver_build --config ${{env.BUILD_TYPE}}
       
-    - name: Install
+    - name: Install Driver
       # Install the built driver into it's directory
-      run: cmake --install ${{github.workspace}}/build
+      run: cmake --install ${{github.workspace}}/driver_build
     
-    - name: Upload artifacts
+    - name: Upload Driver Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: hobovr-build-${{matrix.os}}
         path: |
           hobovr
+
+    - name: Configure Poser Cmake
+      run: cmake bindings/cpp/examples/uduTest -B ${{github.workspace}}/poser_build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build Poser
+      run: cmake --build ${{github.workspace}}/poser_build --config ${{env.BUILD_TYPE}}
+
+    - name: Install Poser
+      run: cmake --install ${{github.workspace}}/poser_build
+
+    - name: Upload poser Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-poser-${{matrix.os}}
+        # could have different extensions depending on the platform
+        path: bindings/cpp/examples/uduTest/output/test_poser
 
     - name: Test
       working-directory: ${{github.workspace}}/build
