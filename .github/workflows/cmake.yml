@@ -43,10 +43,9 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: driver-build-${{ matrix.os }}
+        name: hobovr-build-${{matrix.os}}
         path: |
           hobovr
-          !hobovr/**/*.md
 
     - name: Test
       working-directory: ${{github.workspace}}/build
