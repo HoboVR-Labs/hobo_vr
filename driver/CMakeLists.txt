@@ -53,6 +53,7 @@ message(STATUS "Compilation set for ${HOBOVR_PROCESSOR_ARCH}bit architectures.")
 # Get platform.
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(PLATFORM_NAME "linux")
+  set(PLATFORM_SCRIPT_EXT "sh")
   add_definitions(-DLINUX -DPOSIX)
 
   if(HOBOVR_PROCESSOR_ARCH MATCHES "64")
@@ -63,6 +64,7 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(PLATFORM_NAME "win")
+  set(PLATFORM_SCRIPT_EXT "bat")
   add_definitions(-D_WIN32)
 
   # Binaries path for thirdparties are not generics so we try to guess their suffixes.
@@ -131,6 +133,14 @@ install(
     ${TARGET_NAME}
   DESTINATION
     ${hobo_vr_SOURCE_DIR}/../hobovr/bin/${PLATFORM_NAME}${HOBOVR_PROCESSOR_ARCH}
+)
+
+install(
+  FILES
+    ../scripts/${PLATFORM_NAME}/register_driver.${PLATFORM_SCRIPT_EXT}
+    ../scripts/${PLATFORM_NAME}/unregister_driver.${PLATFORM_SCRIPT_EXT}
+  DESTINATION
+    ${hobo_vr_SOURCE_DIR}/../hobovr/
 )
 
 
