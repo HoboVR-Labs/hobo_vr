@@ -5,10 +5,6 @@ project(test_poser)
 
 set(TARGET_NAME test_poser)
 set(CMAKE_CXX_STANDARD 17)
-# Prefix all shared libraries with nothing.
-set(CMAKE_SHARED_LIBRARY_PREFIX "")
-# Prefix all static libraries with nothing.
-set(CMAKE_STATIC_LIBRARY_PREFIX "")
 
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -47,8 +43,22 @@ file(GLOB poser_src
 add_executable(${TARGET_NAME}
 	${poser_src}
 )
+set_target_properties(
+    ${TARGET_NAME}
+    PROPERTIES 
+        OUTPUT_NAME ${TARGET_NAME}
+        SUFFIX ""
+)
 
 target_link_libraries(${TARGET_NAME}
   lazy_sockets
   ${CMAKE_DL_LIBS}
+)
+
+
+install(
+  TARGETS
+    ${TARGET_NAME}
+  DESTINATION
+    ${test_poser_SOURCE_DIR}/output/
 )
