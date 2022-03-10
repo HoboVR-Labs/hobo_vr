@@ -81,7 +81,7 @@ int main()
 	char buffA[32];
 	char buffB[32];
 
-	printf("sockets: A:%d B:%d\n", sockA, sockB);
+	printf("sockets: A:%d B:%d\n", (int)sockA, (int)sockB);
 
 	res = recv(sockA, buffA, sizeof(KHoboVR_TrackingIdMessage), 0);
 	if (res < 0) return -lerrno;
