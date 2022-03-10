@@ -127,6 +127,14 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 		hobovr::k_sHobovrVersionGG.c_str()
 	);
 
+	// ensure we can activate our hmd later on
+	bool need_restart = vr::VRSettings()->GetBool("steamvr", "requireHmd");
+	if (need_restart) {
+		DriverLog("driver: 'requireHmd' is enabled, need a restart...\n");
+		vr::VRSettings()->SetBool("steamvr", "requireHmd", false);
+		return VRInitError_Init_Retry;
+	}
+
 	// time to init the connection to the poser :P
 	m_lscSocket = std::make_shared<hobovr::tcp_socket>();
 
@@ -136,8 +144,14 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 		return VRInitError_IPC_ServerInitFailed;
 	}
 
+	DriverLog("driver: tracking socket fd=%d", (int)m_lscSocket->GetHandle());
+
 	// send an id message saying this is a tracking socket
-	m_lscSocket->Send(KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage));
+	res = m_lscSocket->Send(KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage));
+	if (res < 0) {
+        DriverLog("driver: failed to send id message: errno=%d\n", lerrno);
+        return vr::VRInitError_IPC_ConnectFailed;
+    }
 
 	m_pReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
 		m_lscSocket,

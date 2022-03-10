@@ -258,6 +258,7 @@ void HobovrTrackingRef_SettManager::OnPacket(void* buff, size_t len) {
 vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
     vr::TrackedDeviceIndex_t unObjectId
 ) {
+    DriverLog("tracking reference: Activate called");
     m_pSocketComm = std::make_shared<hobovr::tcp_socket>();
 
     int res = m_pSocketComm->Connect("127.0.0.1", 6969);
@@ -268,6 +269,13 @@ vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
 
     // send an id message saying this is a manager socket
     res = m_pSocketComm->Send(KHoboVR_ManagerIdMessage, sizeof(KHoboVR_ManagerIdMessage));
+
+    if (res < 0) {
+        DriverLog("tracking reference: failed to send id message: errno=%d\n", lerrno);
+        return vr::VRInitError_IPC_ConnectFailed;
+    }
+
+    DriverLog("tracking reference: manager socket fd=%d", (int)m_pSocketComm->GetHandle());
 
     m_pReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
         m_pSocketComm,
