@@ -44,6 +44,7 @@ static constexpr PacketEndTag my_tag = {'\t', '\r', '\n'};
 
 static HoboVR_ManagerMsgUduString_t data1 = {
 	6,
+	// EDeviceType_headset,
 	EDeviceType_controller,
 	EDeviceType_controller,
 	EDeviceType_tracker,
@@ -79,6 +80,8 @@ int main()
 	// id sockets
 	char buffA[32];
 	char buffB[32];
+
+	printf("sockets: A:%d B:%d\n", sockA, sockB);
 
 	res = recv(sockA, buffA, sizeof(KHoboVR_TrackingIdMessage), 0);
 	if (res < 0) return -lerrno;
@@ -130,6 +133,13 @@ int main()
 	while (1) {
 		my_tracking my_packet;
 		my_packet.term = {'\t', '\r', '\n'};
+
+		// my_packet.h1 = {
+		// 	{0, (float)sin((float)h/10) * 2.0f, 0},
+		// 	{1, 0, 0, 0},
+		// 	{(float)(h % 50 / 10.0f), 0, 0},
+		// 	{0, 0, 0}
+		// };
 
 		// provide "tracking" data
 		my_packet.c1 = {
