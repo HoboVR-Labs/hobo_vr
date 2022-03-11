@@ -130,6 +130,11 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 	// ensure we can activate our hmd later on
 	bool need_restart = vr::VRSettings()->GetBool("steamvr", "requireHmd");
 	if (need_restart) {
+		vr::VRSettings()->SetBool(
+			k_pch_Robotic_Persistence_Section,
+			k_pch_Robotic_recover_requireHMD_Bool,
+			true
+		);
 		DriverLog("driver: 'requireHmd' is enabled, need a restart...\n");
 		vr::VRSettings()->SetBool("steamvr", "requireHmd", false);
 		return VRInitError_Init_Retry;
@@ -339,6 +344,21 @@ void CServerDriver_hobovr::Cleanup() {
 
 	// call stop to make sure the receiver thread has joined
 	m_pReceiver->Stop();
+
+	if (
+		vr::VRSettings()->GetBool(
+			k_pch_Robotic_Persistence_Section,
+			k_pch_Robotic_recover_requireHMD_Bool
+		)
+	) {
+		vr::VRSettings()->SetBool(
+			k_pch_Robotic_Persistence_Section,
+			k_pch_Robotic_recover_requireHMD_Bool,
+			false
+		);
+		vr::VRSettings()->SetBool("steamvr", "requireHmd", true);
+		DriverLog("driver: recovered requireHmd...\n");
+	}
 
 	CleanupDriverLog();
 	VR_CLEANUP_SERVER_DRIVER_CONTEXT();
