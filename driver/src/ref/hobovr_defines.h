@@ -14,6 +14,10 @@ namespace hobovr {
 // driver keys
 static const char *const k_pch_Hobovr_Section = "driver_hobovr";
 
+// persistence keys
+static const char *const k_pch_Robotic_Persistence_Section = "hobovr_robotic_persistence";
+static const char *const k_pch_Robotic_recover_requireHMD_Bool = "recover_requireHMD";
+
 // hmd device keys
 static const char *const k_pch_Hmd_Section = "hobovr_device_hmd";
 static const char *const k_pch_Hmd_SecondsFromVsyncToPhotons_Float = "secondsFromVsyncToPhotons";
