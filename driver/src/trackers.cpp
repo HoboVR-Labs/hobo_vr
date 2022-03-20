@@ -37,7 +37,7 @@ void TrackerDriver::UpdateState(void* data) {
     HoboVR_TrackerPose_t* packet = (HoboVR_TrackerPose_t*)data;
 
     // update all the things
-    vr::DriverPose_t pose;
+    // vr::DriverPose_t pose;
     pose.poseTimeOffset = m_fPoseTimeOffset;
     pose.result = vr::TrackingResult_Running_OK;
     pose.poseIsValid = true;

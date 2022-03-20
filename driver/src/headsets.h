@@ -27,6 +27,7 @@ public:
 
 
 private:
+    vr::DriverPose_t pose;
     float m_flSecondsFromVsyncToPhotons;
     float m_flDisplayFrequency;
     float m_flIPD;

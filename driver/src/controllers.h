@@ -30,6 +30,7 @@ public:
 
 
 private:
+    vr::DriverPose_t pose;
     vr::VRInputComponentHandle_t m_compGrip;
     vr::VRInputComponentHandle_t m_compSystem;
     vr::VRInputComponentHandle_t m_compAppMenu;

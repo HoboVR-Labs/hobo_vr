@@ -27,6 +27,9 @@ public:
     void UpdateState(void* data) override;
     size_t GetPacketSize() override;
 
+private:
+    vr::DriverPose_t pose;
+
 };
 
 

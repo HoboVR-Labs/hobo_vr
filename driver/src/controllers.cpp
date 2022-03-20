@@ -291,7 +291,7 @@ vr::EVRInitError ControllerDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
 void ControllerDriver::UpdateState(void* data) {
     HoboVR_ControllerState_t* packet = (HoboVR_ControllerState_t*)data;
     // update all the things
-    vr::DriverPose_t pose;
+    // vr::DriverPose_t pose;
     pose.poseTimeOffset = m_fPoseTimeOffset;
     pose.result = vr::TrackingResult_Running_OK;
     pose.poseIsValid = true;

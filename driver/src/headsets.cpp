@@ -124,7 +124,7 @@ void HeadsetDriver::UpdateSectionSettings() {
 void HeadsetDriver::UpdateState(void* data) {
     HoboVR_HeadsetPose_t* packet = (HoboVR_HeadsetPose_t*)data;
 
-    vr::DriverPose_t pose;
+    // vr::DriverPose_t pose;
     pose.poseTimeOffset = m_fPoseTimeOffset;
     pose.result = vr::TrackingResult_Running_OK;
     pose.poseIsValid = true;
