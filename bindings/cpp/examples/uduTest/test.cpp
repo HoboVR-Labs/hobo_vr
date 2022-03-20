@@ -16,6 +16,7 @@
 // #include <sys/select.h>
 
 #include "packets.h"
+#include "ref/hobovr_defines.h"
 
 // my tracking packet
 struct my_tracking {
@@ -55,8 +56,17 @@ static HoboVR_ManagerMsgUduString_t data1 = {
 
 static HoboVR_ManagerMsg_t device_list1 = {EManagerMsgType_uduString, (HoboVR_ManagerData_t&)data1, my_tag};
 
-int main()
-{
+int main() {
+
+	printf(
+		"hobovr version: %d.%d.%d %s\n",
+		hobovr::k_nHobovrVersionMajor,
+		hobovr::k_nHobovrVersionMinor,
+		hobovr::k_nHobovrVersionBuild,
+		hobovr::k_sHobovrVersionGG.c_str()
+	);
+
+	// main poser logic
 	tcp_socket binder;
 
 	int res = binder.Bind("0.0.0.0", 6969);
@@ -183,11 +193,9 @@ int main()
 
 		my_packet.g1 = {
 			EGazeStatus_rightEyeLost,
-			0.01f,
+			0.01,
 			{0, 0},
 			{0, 0},
-			{1, 0, 0, 0},
-			{1, 0, 0, 0},
 			0,
 			0
 		};
