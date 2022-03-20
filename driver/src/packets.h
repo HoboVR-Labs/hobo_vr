@@ -251,12 +251,10 @@ enum EHoboVR_GazeStatus {
 struct HoboVR_GazeState_t {
     uint32_t status; // EHoboVR_GazeStatus enum
 
-    float age_seconds;
+    double age_seconds;
 
     float gaze_direction_r[2]; // vec 2
     float gaze_direction_l[2]; // vec 2
-    float gaze_orientation_r[4]; // quat
-    float gaze_orientation_l[4]; // quat
 
     float right_eye_occlusion; // 0 - not occluded, 1 - occluded
     float left_eye_occlusion; // 0 - not occluded, 1 - occluded
