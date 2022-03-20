@@ -9,121 +9,171 @@ GazeMasterDriver::GazeMasterDriver(
     std::string myserial
 ): HobovrDevice(myserial, "hobovr_gaze_master") {
     m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_gaze_master";
-    m_bSlowUpdateThreadIsAlive = false;
-    m_bPause = false;
+    m_sBindPath = "{hobovr}/input/hobovr_gaze_master_profile.json";
 
-    m_pSharedMemory = std::make_shared<shoom::Shm>(
-        "hobovr_gaze_master_state",
-        sizeof(HoboVR_GazeState_t)
-    );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId) {
-    HobovrDevice::Activate(unObjectId);
+    auto res = HobovrDevice::Activate(unObjectId);
 
+    // if parent failed on Activate, stop here
+    if (res != vr::VRInitError_None)
+        return res;
 
-    DriverLog(
-        "GazeMaster: creating shmem for %d bytes on '%s' path...",
-        m_pSharedMemory->Size(),
-        m_pSharedMemory->Path().c_str()
+    // opt out of hand selection, this device is meant for your face!
+    vr::VRProperties()->SetInt32Property(
+        m_ulPropertyContainer,
+        vr::Prop_ControllerRoleHint_Int32,
+        vr::TrackedControllerRole_OptOut
     );
 
-    if (m_pSharedMemory->Create() != shoom::kOK) {
+    // gaze directions
+    // left eye
+    auto err = vr::VRDriverInput()->CreateScalarComponent(
+        m_ulPropertyContainer,
+        "/input/gaze/left/x",
+        m_comp_gaze_l + 0,
+        vr::VRScalarType_Absolute,
+        vr::VRScalarUnits_NormalizedTwoSided
+    );
+    if (err) {
         DriverLog(
-            "GazeMaster: failed to open shmem on %s",
-            m_pSharedMemory->Path().c_str()
+            "gaze_master: failed to create scalar component 1: errno=%d",
+            (int)err
         );
-        m_unObjectId = vr::k_unTrackedDeviceIndexInvalid; // to stop state updates...
-        return vr::VRInitError_IPC_SharedStateInitFailed;
+        return vr::VRInitError_Unknown;
     }
-    DriverLog("GazeMaster: success!");
+    err = vr::VRDriverInput()->CreateScalarComponent(
+        m_ulPropertyContainer,
+        "/input/gaze/left/y",
+        m_comp_gaze_l + 1,
+        vr::VRScalarType_Absolute,
+        vr::VRScalarUnits_NormalizedTwoSided
+    );
+    if (err) {
+        DriverLog(
+            "gaze_master: failed to create scalar component 2: errno=%d",
+            (int)err
+        );
+        return vr::VRInitError_Unknown;
+    }
 
-    // start with invalid state
-    ((HoboVR_GazeState_t*)m_pSharedMemory->Data())->status = EGazeStatus_invalid;
+    // right eye
+    err = vr::VRDriverInput()->CreateScalarComponent(
+        m_ulPropertyContainer,
+        "/input/gaze/right/x",
+        m_comp_gaze_r + 0,
+        vr::VRScalarType_Absolute,
+        vr::VRScalarUnits_NormalizedTwoSided
+    );
+    if (err) {
+        DriverLog(
+            "gaze_master: failed to create scalar component 3: errno=%d",
+            (int)err
+        );
+        return vr::VRInitError_Unknown;
+    }
+    err = vr::VRDriverInput()->CreateScalarComponent(
+        m_ulPropertyContainer,
+        "/input/gaze/right/y",
+        m_comp_gaze_r + 1,
+        vr::VRScalarType_Absolute,
+        vr::VRScalarUnits_NormalizedTwoSided
+    );
+    if (err) {
+        DriverLog(
+            "gaze_master: failed to create scalar component 4: errno=%d",
+            (int)err
+        );
+        return vr::VRInitError_Unknown;
+    }
 
-    m_bSlowUpdateThreadIsAlive = true;
-    m_ptSlowUpdateThread = new std::thread(SlowUpdateThreadEnter, this);
+    // gaze occlusion
+    // left eye
+    err = vr::VRDriverInput()->CreateScalarComponent(
+        m_ulPropertyContainer,
+        "/input/gaze/occlusion/left/value",
+        m_comp_occlusion + 0,
+        vr::VRScalarType_Absolute,
+        vr::VRScalarUnits_NormalizedOneSided
+    );
+    if (err) {
+        DriverLog(
+            "gaze_master: failed to create scalar component 5: errno=%d",
+            (int)err
+        );
+        return vr::VRInitError_Unknown;
+    }
 
-    PowerOn();
+    // right eye
+    err = vr::VRDriverInput()->CreateScalarComponent(
+        m_ulPropertyContainer,
+        "/input/gaze/occlusion/right/value",
+        m_comp_occlusion + 1,
+        vr::VRScalarType_Absolute,
+        vr::VRScalarUnits_NormalizedOneSided
+    );
+    if (err) {
+        DriverLog(
+            "gaze_master: failed to create scalar component 6: errno=%d",
+            (int)err
+        );
+        return vr::VRInitError_Unknown;
+    }
 
     return vr::VRInitError_None;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-void GazeMasterDriver::SlowUpdateThreadEnter(GazeMasterDriver* self) {
-    self->SlowUpdateThread();
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-void GazeMasterDriver::SlowUpdateThread() {
-    while (m_bSlowUpdateThreadIsAlive) {
-
-        if (!m_bPause && m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
-            vr::VREvent_Notification_t event_data = {69, 0};
-            vr::VRServerDriverHost()->VendorSpecificEvent(
-                m_unObjectId,
-                (vr::EVREventType)EHoboVR_VendorEvents::EHoboVR_EyeTrackingActive,
-                (vr::VREvent_Data_t&)event_data,
-                0
-            );
-        }
-
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void GazeMasterDriver::PowerOff() {
-    HobovrDevice::PowerOff();
-
-    m_bPause = true;
-
-    vr::VREvent_Notification_t event_data = {41, 0};
-    vr::VRServerDriverHost()->VendorSpecificEvent(
-        m_unObjectId,
-        (vr::EVREventType)EHoboVR_VendorEvents::EHoboVR_EyeTrackingEnd,
-        (vr::VREvent_Data_t&)event_data,
-        0
-    );
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void GazeMasterDriver::PowerOn() {
-    HobovrDevice::PowerOn();
-
-    m_bPause = false;
-
-    vr::VREvent_Notification_t event_data = {41, 0};
-    vr::VRServerDriverHost()->VendorSpecificEvent(
-        m_unObjectId,
-        (vr::EVREventType)EHoboVR_VendorEvents::EHoboVR_EyeTrackingActive,
-        (vr::VREvent_Data_t&)event_data,
-        0
-    );
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void GazeMasterDriver::UpdateState(void* data) {
-    HoboVR_GazeState_t* packet = (HoboVR_GazeState_t*)data;
-    // (void)packet;
-    if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
-        HoboVR_GazeState_t* shared_state = (HoboVR_GazeState_t*)m_pSharedMemory->Data();
-        // (void)shared_state;
-        *shared_state = *packet;
+    // do nothing if not activated
+    if (m_unObjectId == vr::k_unTrackedDeviceIndexInvalid) {
+        return;
     }
 
+    HoboVR_GazeState_t* packet = (HoboVR_GazeState_t*)data;
+
+    auto ivrinput_cache = vr::VRDriverInput();
+
+    // left eye dir
+    ivrinput_cache->UpdateScalarComponent(
+        m_comp_gaze_l[0],
+        packet->gaze_direction_l[0],
+        packet->age_seconds
+    );
+    ivrinput_cache->UpdateScalarComponent(
+        m_comp_gaze_l[1],
+        packet->gaze_direction_l[1],
+        packet->age_seconds
+    );
+
+    // right eye dir
+    ivrinput_cache->UpdateScalarComponent(
+        m_comp_gaze_r[0],
+        packet->gaze_direction_r[0],
+        packet->age_seconds
+    );
+    ivrinput_cache->UpdateScalarComponent(
+        m_comp_gaze_r[1],
+        packet->gaze_direction_r[1],
+        packet->age_seconds
+    );
+
+    // both eye occlusion
+    ivrinput_cache->UpdateScalarComponent(
+        m_comp_occlusion[0],
+        packet->left_eye_occlusion,
+        packet->age_seconds
+    );
+    ivrinput_cache->UpdateScalarComponent(
+        m_comp_occlusion[1],
+        packet->right_eye_occlusion,
+        packet->age_seconds
+    );
+
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-size_t GazeMasterDriver::GetPacketSize() {
-    return sizeof(HoboVR_GazeState_t);
-}

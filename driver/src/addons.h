@@ -10,9 +10,9 @@
 #include "hobovr_device_base.h"
 #include "packets.h"
 
-#include <shoom.h>
+// #include <shoom.h>
 
-#include <thread>
+// #include <thread>
 
 //-----------------------------------------------------------------------------
 // Purpose: eye tracking addon device, code name: Gaze Master
@@ -22,28 +22,17 @@ class GazeMasterDriver: public hobovr::HobovrDevice<false, false> {
 public:
     GazeMasterDriver(std::string myserial);
 
-    vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) override;
+    virtual vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) final;
 
-    void UpdateState(void* data) override;
-    size_t GetPacketSize() override;
-
-    void PowerOff() override;
-    void PowerOn() override;
-
+    virtual void UpdateState(void* data) final;
+    inline virtual size_t GetPacketSize() final {return sizeof(HoboVR_GazeState_t);}
 
 
 private:
 
-    void SlowUpdateThread();
-    static void SlowUpdateThreadEnter(GazeMasterDriver* self);
-
-private:
-
-    std::shared_ptr<shoom::Shm> m_pSharedMemory;
-
-    bool m_bSlowUpdateThreadIsAlive;
-    bool m_bPause;
-    std::thread* m_ptSlowUpdateThread;
+    vr::VRInputComponentHandle_t m_comp_gaze_l[2];
+    vr::VRInputComponentHandle_t m_comp_gaze_r[2];
+    vr::VRInputComponentHandle_t m_comp_occlusion[2];
 
 };
 
