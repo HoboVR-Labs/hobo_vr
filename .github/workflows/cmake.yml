@@ -1,26 +1,26 @@
 name: CMake
 
 on:
-  push:
-    branches: [ master ]
-
-  pull_request:
-    branches: [ master ]
-
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      buildType:
-        description: 'Build config'
+      platform:
+        description: 'Target Platform to build, usually "ubuntu-latest" or "windows-latest"'
         required: true
+        type: string
+      branch:
+        description: 'Target branch to build'
+        default: 'master'
+        required: false
+        type: string
+      buildType:
+        description: 'CMake build type (Release, Debug, RelWithDebInfo, etc.)'
         default: 'Release'
-        type: choice
-        options:
-        - Debug
-        - Release
+        required: false
+        type: string
 
 jobs:
   env-setup:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.platform }}
     outputs:
       build: ${{steps.yeet.outputs.config}}
 
@@ -44,16 +44,15 @@ jobs:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ inputs.platform }}
 
     needs: [env-setup]
-
+    
     steps:
     - name: Clone repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.branch }}
       
     - name: Clone submodules
       run: git submodule init && git submodule update
@@ -74,6 +73,6 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: hobovr-build-${{matrix.os}}
+        name: hobovr-build-${{ inputs.platform }}
         path: |
           hobovr
