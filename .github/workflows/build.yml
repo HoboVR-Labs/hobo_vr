@@ -29,7 +29,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-    uses: ./.github/workflows/cmake.yml@main
+    uses: ./.github/workflows/cmake.yml
     with:
       platform: ${{matrix.os}}
       branch: ${{inputs.branch}}
