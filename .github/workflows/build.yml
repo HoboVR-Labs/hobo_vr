@@ -29,11 +29,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-
-    steps:
-    - name: Run CMake
-      uses: ./.github/workflows/cmake.yml@main
-      with:
-        platform: ${{matrix.os}}
-        branch: ${{inputs.branch}}
-        buildType: ${{inputs.buildType}}
+    uses: ./.github/workflows/cmake.yml@main
+    with:
+      platform: ${{matrix.os}}
+      branch: ${{inputs.branch}}
+      buildType: ${{inputs.buildType}}
