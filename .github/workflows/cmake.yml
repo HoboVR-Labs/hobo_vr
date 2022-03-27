@@ -6,15 +6,22 @@ on:
       platform:
         description: 'Target Platform to build, usually "ubuntu-latest" or "windows-latest"'
         required: true
-        type: string
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+          - windows-latest
+      buildType:
+        description: 'Build config'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Debug
+          - Release
       branch:
         description: 'Target branch to build'
         default: 'master'
-        required: false
-        type: string
-      buildType:
-        description: 'CMake build type (Release, Debug, RelWithDebInfo, etc.)'
-        default: 'Release'
         required: false
         type: string
 
@@ -47,7 +54,7 @@ jobs:
     runs-on: ${{ inputs.platform }}
 
     needs: [env-setup]
-    
+
     steps:
     - name: Clone repo
       uses: actions/checkout@v3
