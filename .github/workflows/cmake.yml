@@ -18,11 +18,28 @@ on:
         - Debug
         - Release
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: ${{github.event.inputs.buildType}}
-
 jobs:
+  env-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{steps.yeet.outputs.config}}
+
+    steps:
+      - name: Env setup
+        run: export BUILD_TYPE=${inputs.buildType}
+        if: ${{contains(inputs.buildType, 'e')}}
+
+      - name: Env setup - default
+        run: export BUILD_TYPE=Release
+        if: ${{!contains(inputs.buildType, 'e')}}
+
+      - name: Yeet outputs
+        id: output
+        run: echo "::set-output name=config::$BUILD_TYPE"
+
+      - name: Check outputs
+        run: echo "BUILD_TYPE = |${{ steps.yeet.outputs.config }}|"
+
   build:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
@@ -31,6 +48,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+
+    needs: [env-setup]
 
     steps:
     - name: Clone repo
@@ -42,11 +61,11 @@ jobs:
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE= ${{needs.env-setup.outputs.build}}
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --config ${{needs.env-setup.outputs.build}}
       
     - name: Install
       # Install the built driver into it's directory
@@ -63,5 +82,5 @@ jobs:
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.  
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest -C ${{env.BUILD_TYPE}}
+      run: ctest -C ${{needs.env-setup.outputs.build}}
       
