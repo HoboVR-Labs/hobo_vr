@@ -14,10 +14,11 @@ on:
       options:
         - Debug
         - Release
-
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
+    branch:
+      description: 'Target branch to build'
+      default: 'master'
+      required: false
+      type: string
 
 jobs:
   build:
@@ -29,11 +30,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
 
+    needs: [env-setup]
+
     steps:
     - name: Run CMake
       uses: ./.github/workflows/cmake.yml@main
       with:
         platform: ${{matrix.os}}
-        branch: master
-        build-type: Release
+        branch: ${{inputs.branch}}
+        buildType: ${{inputs.buildType}}
       
