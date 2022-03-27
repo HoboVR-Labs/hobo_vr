@@ -26,16 +26,16 @@ jobs:
 
     steps:
       - name: Env setup
-        run: export BUILD_TYPE=${inputs.buildType}
+        run: echo "BUILD_TYPE=${{inputs.buildType}}" >> $GITHUB_ENV
         if: ${{contains(inputs.buildType, 'e')}}
 
       - name: Env setup - default
-        run: export BUILD_TYPE=Release
+        run: echo "BUILD_TYPE=Release" >> $GITHUB_ENV
         if: ${{!contains(inputs.buildType, 'e')}}
 
       - name: Yeet outputs
-        id: output
-        run: echo "::set-output name=config::$BUILD_TYPE"
+        id: yeet
+        run: echo "::set-output name=config::${{env.BUILD_TYPE}}"
 
       - name: Check outputs
         run: echo "BUILD_TYPE = |${{ steps.yeet.outputs.config }}|"
@@ -61,7 +61,7 @@ jobs:
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE= ${{needs.env-setup.outputs.build}}
+      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{needs.env-setup.outputs.build}}
 
     - name: Build
       # Build your program with the given configuration
