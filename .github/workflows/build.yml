@@ -30,8 +30,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
 
-    needs: [env-setup]
-
     steps:
     - name: Run CMake
       uses: ./.github/workflows/cmake.yml@main
@@ -39,4 +37,3 @@ jobs:
         platform: ${{matrix.os}}
         branch: ${{inputs.branch}}
         buildType: ${{inputs.buildType}}
-      
