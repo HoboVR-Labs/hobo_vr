@@ -8,10 +8,19 @@ on:
     branches: [ master ]
 
   workflow_dispatch:
+    inputs:
+      buildType:
+        description: 'Build config'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+        - Debug
+        - Release
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
+  BUILD_TYPE: ${{github.event.inputs.buildType}}
 
 jobs:
   build:
