@@ -27,30 +27,30 @@ jobs:
     runs-on: ${{ inputs.platform }}
 
     steps:
-    - name: Clone repo
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ inputs.branchName }}
-      
-    - name: Clone submodules
-      run: git submodule init && git submodule update
+      - name: Clone repo
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.branchName }}
 
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{inputs.buildType}}
+      - name: Clone submodules
+        run: git submodule init && git submodule update
 
-    - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{inputs.buildType}}
-      
-    - name: Install
-      # Install the built driver into it's directory
-      run: cmake --install ${{github.workspace}}/build
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: hobovr-build-${{ inputs.platform }}
-        path: |
-          hobovr
+      - name: Configure CMake
+        # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+        run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{inputs.buildType}}
+
+      - name: Build
+        # Build your program with the given configuration
+        run: cmake --build ${{github.workspace}}/build --config ${{inputs.buildType}}
+
+      - name: Install
+        # Install the built driver into it's directory
+        run: cmake --install ${{github.workspace}}/build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: hobovr-build-${{ inputs.platform }}
+          path: |
+            hobovr
