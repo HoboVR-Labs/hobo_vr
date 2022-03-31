@@ -13,7 +13,7 @@ on:
         required: true
         default: 'Release'
         type: string
-      branch:
+      branchName:
         description: 'Target branch to build'
         default: 'master'
         required: false
@@ -30,7 +30,7 @@ jobs:
     - name: Clone repo
       uses: actions/checkout@v3
       with:
-        ref: ${{ inputs.branch }}
+        ref: ${{ inputs.branchName }}
       
     - name: Clone submodules
       run: git submodule init && git submodule update
@@ -38,11 +38,11 @@ jobs:
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{inputs.build}}
+      run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{inputs.buildType}}
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{inputs.build}}
+      run: cmake --build ${{github.workspace}}/build --config ${{inputs.buildType}}
       
     - name: Install
       # Install the built driver into it's directory

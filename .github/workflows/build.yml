@@ -13,7 +13,7 @@ on:
       options:
         - Debug
         - Release
-    branch:
+    branchName:
       description: 'Target branch to build'
       default: 'master'
       required: false
@@ -21,38 +21,40 @@ on:
 
 jobs:
   env-setup:
-    runs-on: ${{ inputs.platform }}
+    runs-on: ubuntu-latest
     outputs:
-      build: ${{steps.yeet.outputs.config}}
+      buildType: ${{steps.assign_build_input.outputs.buildType}}
+      branchName: ${{steps.assign_branch_input.outputs.branchName}}
 
     steps:
-      - name: Env setup
-        run: echo "BUILD_TYPE=${{inputs.buildType}}" >> $GITHUB_ENV
-        if: ${{contains(inputs.buildType, 'e')}}
+      - name: Check buildType Input
+        id: assign_build_input
+        run: echo "::set-output name=buildType::${{(github.event.inputs.buildType||'Release')}}"
 
-      - name: Env setup - default
-        run: echo "BUILD_TYPE=Release" >> $GITHUB_ENV
-        if: ${{!contains(inputs.buildType, 'e')}}
+      - name: Check branchName Input
+        id: assign_branch_input
+        run: echo "::set-output name=branchName::${{(github.event.inputs.branchName||'master')}}"
 
-      - name: Yeet outputs
-        id: yeet
-        run: echo "::set-output name=config::${{env.BUILD_TYPE}}"
+      - name: Validate Inputs
+        id: check_input_vals
+        run: echo "{branchName:${{github.event.inputs.branchName}}, buildType:${{github.event.inputs.buildType}}}"
 
-      - name: Check outputs
-        run: echo "BUILD_TYPE = |${{ steps.yeet.outputs.config }}|"
+      - name: Validate Outputs
+        id: check_output_vals
+        run: echo "{branchName:${{steps.assign_branch_input.outputs.branchName}}, buildType:${{steps.assign_build_input.outputs.buildType}}}"
 
   build-ubuntu-latest:
     needs: [ env-setup ]
     uses: ./.github/workflows/cmake.yml
     with:
       platform: ubuntu-latest
-      branch: ${{inputs.branch}}
-      buildType: ${{steps.yeet.outputs.config}}
+      branch: ${{steps.assign_branch_input.outputs.branchName}}
+      buildType: ${{steps.assign_build_input.outputs.buildType}}
 
   build-windows-latest:
     needs: [ env-setup ]
     uses: ./.github/workflows/cmake.yml
     with:
       platform: windows-latest
-      branch: ${{inputs.branch}}
-      buildType: ${{steps.yeet.outputs.config}}
+      branchName: ${{steps.assign_branch_input.outputs.branchName}}
+      buildType: ${{steps.assign_build_input.outputs.buildType}}
