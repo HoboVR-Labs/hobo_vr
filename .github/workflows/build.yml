@@ -41,18 +41,18 @@ jobs:
       - name: Check outputs
         run: echo "BUILD_TYPE = |${{ steps.yeet.outputs.config }}|"
 
-  build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ${{matrix.os}}
-    needs: env-setup
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-     - uses: ./.github/workflows/cmake.yml
-      with:
-        platform: ${{matrix.os}}
-        branch: ${{inputs.branch}}
-        buildType: ${{${{needs.env-setup.outputs.build}}}}
+  build-ubuntu-latest:
+    needs: [ env-setup ]
+    uses: ./.github/workflows/cmake.yml
+    with:
+      platform: ubuntu-latest
+      branch: ${{inputs.branch}}
+      buildType: ${{steps.yeet.outputs.config}}
+
+  build-windows-latest:
+    needs: [ env-setup ]
+    uses: ./.github/workflows/cmake.yml
+    with:
+      platform: windows-latest
+      branch: ${{inputs.branch}}
+      buildType: ${{steps.yeet.outputs.config}}
