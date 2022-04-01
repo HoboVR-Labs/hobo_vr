@@ -8,6 +8,8 @@
 #define HOBOVR_COMPONENTS_H
 
 #include <openvr_driver.h>
+#include "driverlog.h"
+
 #include <cmath>
 #include <memory>
 

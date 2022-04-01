@@ -9,9 +9,14 @@
 
 #include "hobovr_components.h"
 #include "packets.h"
+
 #include <lazy_sockets.h>
 
 #include <string.h>
+
+#include <openvr_driver.h>
+#include "driverlog.h"
+
 #ifdef WIN
 	#define snprintf _snprintf
 	#define vsnprintf _vsnprintf
@@ -75,9 +80,34 @@ namespace hobovr {
 	using tcp_socket = lsc::LSocket<AF_INET, SOCK_STREAM, 0>;
 	using tcp_receiver_loop = lsc::ThreadedRecvLoop<AF_INET, SOCK_STREAM, 0, PacketEndTag>;
 
-	// should be publicly inherited
+	///////////////////////////////////////////////////////////////////////////
+	// Device interface class
+	///////////////////////////////////////////////////////////////////////////
+
+	class IHobovrDevice: public vr::ITrackedDeviceServerDriver {
+	public:
+		virtual std::string GetSerialNumber() const = 0;
+		virtual void PowerOff() = 0;
+		virtual void PowerOn() = 0;
+		virtual void ProcessEvent(const vr::VREvent_t &vrEvent) = 0;
+		virtual void UpdateDeviceBatteryCharge() = 0;
+		virtual void CheckForUpdates() = 0;
+		virtual void UpdateSectionSettings() = 0;
+
+		///////////////////////////////////////////////////////////////////////
+		// these methods *have* to be overridden by the latest child
+		///////////////////////////////////////////////////////////////////////
+
+		virtual void UpdateState(void* packet) = 0;
+		virtual size_t GetPacketSize() = 0;
+	};
+
+	///////////////////////////////////////////////////////////////////////////
+	// Devices should publicly inherit this
+	///////////////////////////////////////////////////////////////////////////
+
 	template<bool UseHaptics, bool HasBattery>
-	class HobovrDevice: public vr::ITrackedDeviceServerDriver {
+	class HobovrDevice: public IHobovrDevice {
 	public:
 		inline HobovrDevice(
 			std::string myserial,
@@ -118,7 +148,7 @@ namespace hobovr {
 			// m_Pose.shouldApplyHeadModel = false;
 		}
 
-		inline ~HobovrDevice(){
+		inline virtual ~HobovrDevice() {
 			for (auto &i : m_vComponents)
 				free(i.ptr_handle);
 
@@ -127,7 +157,14 @@ namespace hobovr {
 
 		}
 
-		inline virtual vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) {
+		///////////////////////////////////////////////////////////////////////
+		// ITrackedDeviceServerDriver methods
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual vr::EVRInitError Activate(
+			vr::TrackedDeviceIndex_t unObjectId
+		) override {
+
 			m_unObjectId = unObjectId;
 			m_ulPropertyContainer =
 					vr::VRProperties()->TrackedDeviceToPropertyContainer(m_unObjectId);
@@ -202,7 +239,10 @@ namespace hobovr {
 					vr::Prop_DeviceBatteryPercentage_Float,
 					m_fDeviceCharge
 				);
-				DriverLog("device: has battery, current charge: %.3f", m_fDeviceCharge*100);
+				DriverLog(
+					"device: has battery, current charge: %.3f%",
+					m_fDeviceCharge*100
+				);
 			}
 
 			vr::VRProperties()->SetStringProperty(
@@ -231,59 +271,51 @@ namespace hobovr {
 			return vr::VRInitError_None;
 		}
 
-		inline virtual void PowerOff() {
-			// signal device is "aliven't"
-			vr::DriverPose_t pose;
-			pose.poseTimeOffset = 0;
-			pose.poseIsValid = false;
-			pose.deviceIsConnected = false;
-			if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
-				vr::VRServerDriverHost()->TrackedDevicePoseUpdated(
-						m_unObjectId, pose, sizeof(pose));
-			}
-			DriverLog("device: '%s' disconnected", m_sSerialNumber.c_str());
-		}
+		///////////////////////////////////////////////////////////////////////
 
-		inline virtual void PowerOn() {
-			// signal device is "alive"
-			vr::DriverPose_t pose;
-			pose.poseTimeOffset = 0;
-			pose.poseIsValid = true;
-			pose.deviceIsConnected = true;
-			if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
-				vr::VRServerDriverHost()->TrackedDevicePoseUpdated(
-						m_unObjectId, pose, sizeof(pose));
-			}
-			DriverLog("device: '%s' connected", m_sSerialNumber.c_str());
-		}
-
-		inline virtual void Deactivate() {
+		inline virtual void Deactivate() override {
 			DriverLog("device: \"%s\" deactivated\n", m_sSerialNumber.c_str());
 			PowerOff();
 			m_unObjectId = vr::k_unTrackedDeviceIndexInvalid;
 		}
 
-		inline virtual void EnterStandby() {}
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual void EnterStandby() override {}
+
+		///////////////////////////////////////////////////////////////////////
 
 		/* debug request from a client, TODO: uh... actually implement this? */
 		inline virtual void DebugRequest(
 			const char *pchRequest,
 			char *pchResponseBuffer,
 			uint32_t unResponseBufferSize
-		) {
-			DriverLog("device: \"%s\" got a debug request: \"%s\"", m_sSerialNumber.c_str(), pchRequest);
+		) override {
+			DriverLog(
+				"device: \"%s\" got a debug request: \"%s\"",
+				m_sSerialNumber.c_str(),
+				pchRequest
+			);
+
 			if (unResponseBufferSize >= 1)
 				pchResponseBuffer[0] = 0;
 		}
 
-		inline virtual vr::DriverPose_t GetPose() {
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual vr::DriverPose_t GetPose() override {
 			vr::DriverPose_t tmp;
+			tmp.poseIsValid = true;
+			tmp.deviceIsConnected = true;
+			tmp.result = vr::TrackingResult_Running_OK;
 			return tmp;
 		}
 
+		///////////////////////////////////////////////////////////////////////
+
 		inline virtual void *GetComponent(
 			const char *pchComponentNameAndVersion
-		) {
+		) override {
 			for (auto &i : m_vComponents) {
 				if (!_stricmp(pchComponentNameAndVersion, i.tag)){
 					DriverLog("%s: request for \"%s\": component found",
@@ -303,11 +335,47 @@ namespace hobovr {
 			return NULL;
 		}
 
-		inline virtual std::string GetSerialNumber() const {
+		///////////////////////////////////////////////////////////////////////
+		// HoboVR device methods
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual std::string GetSerialNumber() const override {
 			return m_sSerialNumber;
 		}
 
-		inline virtual void ProcessEvent(const vr::VREvent_t &vrEvent) {
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual void PowerOff() override {
+			// signal device is "aliven't"
+			vr::DriverPose_t pose;
+			pose.poseTimeOffset = 0;
+			pose.poseIsValid = false;
+			pose.deviceIsConnected = false;
+			if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
+				vr::VRServerDriverHost()->TrackedDevicePoseUpdated(
+						m_unObjectId, pose, sizeof(pose));
+			}
+			DriverLog("device: '%s' disconnected", m_sSerialNumber.c_str());
+		}
+
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual void PowerOn() override {
+			// signal device is "alive"
+			vr::DriverPose_t pose;
+			pose.poseTimeOffset = 0;
+			pose.poseIsValid = true;
+			pose.deviceIsConnected = true;
+			if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
+				vr::VRServerDriverHost()->TrackedDevicePoseUpdated(
+						m_unObjectId, pose, sizeof(pose));
+			}
+			DriverLog("device: '%s' connected", m_sSerialNumber.c_str());
+		}
+
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual void ProcessEvent(const vr::VREvent_t &vrEvent) override {
 			if constexpr(UseHaptics)
 			{
 				if (vrEvent.eventType == vr::VREvent_Input_HapticVibration) {
@@ -371,7 +439,9 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 			}
 		}
 
-		inline virtual void UpdateDeviceBatteryCharge() {
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual void UpdateDeviceBatteryCharge() override {
 			if constexpr(HasBattery) {
 				float fNewCharge = GetDeviceCharge(m_sSerialNumber);
 
@@ -383,7 +453,11 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 						m_fDeviceCharge
 					);
 
-					DriverLog("device: \"%s\" battery charge updated: %f", m_sSerialNumber, m_fDeviceCharge);
+					DriverLog(
+						"device: \"%s\" battery charge updated: %f",
+						m_sSerialNumber,
+						m_fDeviceCharge
+					);
 				}
 
 
@@ -396,12 +470,17 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 						m_bDeviceIsCharging
 					);
 
-					DriverLog("device: \"%s\" is charging: %d", m_bDeviceIsCharging);
+					DriverLog(
+						"device: \"%s\" is charging: %d",
+						m_bDeviceIsCharging
+					);
 				}
 			}
 		}
 
-		inline virtual void CheckForUpdates() {
+		///////////////////////////////////////////////////////////////////////
+
+		inline virtual void CheckForUpdates() override {
 			bool shouldUpdate = checkForDeviceUpdates(m_sSerialNumber);
 
 			vr::VRProperties()->SetBoolProperty(
@@ -418,25 +497,29 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 
 		}
 
-		inline virtual void UpdateSectionSettings() {};
+		///////////////////////////////////////////////////////////////////////
 
-		// these methods *have* to be overriden by the child
-		virtual void UpdateState(void* packet) = 0;
-		virtual size_t GetPacketSize() = 0;
+		inline virtual void UpdateSectionSettings() override {};
 
+		///////////////////////////////////////////////////////////////////////
 
 	protected:
 		// openvr api stuff
-		vr::TrackedDeviceIndex_t m_unObjectId; // DO NOT TOUCH THIS, parent will handle this, use it as read only!
-		vr::PropertyContainerHandle_t m_ulPropertyContainer; // THIS EITHER, use it as read only!
+		// DO NOT TOUCH THIS, parent will handle this, use it as read only!
+		vr::TrackedDeviceIndex_t m_unObjectId;
+		vr::PropertyContainerHandle_t m_ulPropertyContainer;
 
 
-		std::string m_sRenderModelPath; // path to the device's render model, should be populated in the constructor of the derived class
-		std::string m_sBindPath; // path to the device's input bindings, should be populated in the constructor of the derived class
+		// path to the device's render model, should be populated in the constructor of the derived class
+		std::string m_sRenderModelPath;
+		// path to the device's input bindings, should be populated in the constructor of the derived class
+		std::string m_sBindPath;
 
-		std::vector<HobovrComponent_t> m_vComponents; // components that this device has, should be populated in the constructor of the derived class
+		// components that this device has, should be populated in the constructor of the derived class
+		std::vector<HobovrComponent_t> m_vComponents;
 
-		float m_fPoseTimeOffset; // time offset of the pose, set trough the config
+		// time offset of the pose, set trough the config
+		float m_fPoseTimeOffset;
 
 		// hobovr stuff
 		std::shared_ptr<tcp_socket> m_pBrodcastSocket;
@@ -445,12 +528,17 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 		// openvr api stuff that i don't trust you to touch
 		vr::VRInputComponentHandle_t m_compHaptic; // haptics, used if UseHaptics is true
 
-		float m_fDeviceCharge; // device charge, 0-none, 1-full, only used if HasBattery is true
-		bool m_bDeviceIsCharging; // is device charing, 0-no, 1-yes, only used if HasBattery is true
+		// device charge, 0-none, 1-full, only used if HasBattery is true
+		float m_fDeviceCharge;
+		// is device charing, 0-no, 1-yes, only used if HasBattery is true
+		bool m_bDeviceIsCharging;
 
-		std::string m_sUpdateUrl; // url to which steamvr will redirect if checkForDeviceUpdates returns true on Activate, set trough the config
-		std::string m_sSerialNumber; // steamvr uses this to identify devices, no need for you to touch this after init
-		std::string m_sModelNumber; // steamvr uses this to identify devices, no need for you to touch this after init
+		// url to which steamvr will redirect if checkForDeviceUpdates returns true on Activate, set trough the config
+		std::string m_sUpdateUrl;
+		// steamvr uses this to identify devices, no need for you to touch this after init
+		std::string m_sSerialNumber;
+		// steamvr uses this to identify devices, no need for you to touch this after init
+		std::string m_sModelNumber;
 	};
 }
 
