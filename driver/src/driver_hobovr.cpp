@@ -15,13 +15,9 @@
 #include <chrono>
 #include <thread>
 #include <vector>
-
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <ctime>
-#include <variant>
+#include <atomic>
+#include <memory>
+#include <unordered_map>
 
 using namespace vr;
 
@@ -35,39 +31,25 @@ using namespace vr;
 	#error "Unsupported Platform."
 #endif
 
+// timer
+#include "timer.h"
+
 // devices
+#include "device_factory.h"
+
 #include "hobovr_defines.h"
 
 #include "hobovr_device_base.h"
 #include "hobovr_components.h"
-
-#include "headsets.h"
-#include "controllers.h"
-#include "trackers.h"
-#include "addons.h"
 
 #include "tracking_references.h"
 
 #include "util.h"
 
 
-//-----------------------------------------------------------------------------
+///////////////////////////////////////////////////////////////////////////////
 // Purpose: serverDriver
-//-----------------------------------------------------------------------------
-
-enum EHobovrDeviceNodeTypes {
-	hmd = 0,
-	controller = 1,
-	tracker = 2,
-	gaze_master = 3
-};
-
-
-struct HobovrDeviceStorageNode_t {
-	EHobovrDeviceNodeTypes type;
-	void* handle;
-};
-
+///////////////////////////////////////////////////////////////////////////////
 
 class CServerDriver_hobovr : public IServerTrackedDeviceProvider {
 public:
@@ -86,36 +68,29 @@ public:
 	void OnPacket(void* buff, size_t len);
 
 private:
-	void SlowUpdateThread();
-	static void SlowUpdateThreadEnter(CServerDriver_hobovr* ptr) {
-		ptr->SlowUpdateThread();
-	}
-
-	void FastThread();
-	static void FastThreadEnter(CServerDriver_hobovr* ptr) {
-		ptr->FastThread();
-	}
-
+	// void InternalThread();
 	void UpdateServerDeviceList();
 
-	std::vector<HobovrDeviceStorageNode_t> m_vDevices;
-	std::vector<HobovrDeviceStorageNode_t> m_vStandbyDevices;
+	std::vector<std::unique_ptr<hobovr::IHobovrDevice>> mvDevices;
+	std::vector<std::unique_ptr<hobovr::IHobovrDevice>> mvOffDevices;
 
-	size_t m_luPacketSize = 16;
-	PacketEndTag m_tag = {'\t', '\r', '\n'};
-	std::shared_ptr<hobovr::tcp_socket> m_lscSocket;
-	std::unique_ptr<hobovr::tcp_receiver_loop> m_pReceiver;
-	std::unique_ptr<HobovrTrackingRef_SettManager> m_pSettManTref;
+	size_t muInternalBufferSize = 16;
 
-	bool m_bDeviceListSyncEvent = false;
+	PacketEndTag mPacketTag = {'\t', '\r', '\n'};
 
-	// slower thread stuff
-	bool m_bThreadAlive;
-	std::unique_ptr<std::thread> m_ptSlowUpdateThread;
-	std::unique_ptr<std::thread> m_ptFastThread;
+	std::shared_ptr<hobovr::tcp_socket> mlSocket;
+	std::unique_ptr<hobovr::tcp_receiver_loop> mpReceiver;
+	std::unique_ptr<hobovr::Timer> mpTimer;
+
+	std::unique_ptr<HobovrTrackingRef_SettManager> mpSettingsManager;
+
+	std::atomic<bool> mbUduEvent;
 };
 
+///////////////////////////////////////////////////////////////////////////////
 // yes
+///////////////////////////////////////////////////////////////////////////////
+
 EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 	VR_INIT_SERVER_DRIVER_CONTEXT(pDriverContext);
 	InitDriverLog(vr::VRDriverLog());
@@ -141,62 +116,99 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 	}
 
 	// time to init the connection to the poser :P
-	m_lscSocket = std::make_shared<hobovr::tcp_socket>();
+	mlSocket = std::make_shared<hobovr::tcp_socket>();
 
-	int res = m_lscSocket->Connect("127.0.0.1", 6969);
+	int res = mlSocket->Connect("127.0.0.1", 6969);
 	if (res) {
 		DriverLog("driver: failed to connect: errno=%d", lerrno);
 		return VRInitError_IPC_ServerInitFailed;
 	}
 
-	DriverLog("driver: tracking socket fd=%d", (int)m_lscSocket->GetHandle());
+	DriverLog("driver: tracking socket fd=%d", (int)mlSocket->GetHandle());
 
 	// send an id message saying this is a tracking socket
-	res = m_lscSocket->Send(KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage));
+	res = mlSocket->Send(KHoboVR_TrackingIdMessage, sizeof(KHoboVR_TrackingIdMessage));
 	if (res < 0) {
         DriverLog("driver: failed to send id message: errno=%d\n", lerrno);
         return vr::VRInitError_IPC_ConnectFailed;
     }
 
-	m_pReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
-		m_lscSocket,
-		m_tag,
+	mpReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
+		mlSocket,
+		mPacketTag,
 		std::bind(&CServerDriver_hobovr::OnPacket, this, std::placeholders::_1, std::placeholders::_2),
 		16
 	);
-	m_pReceiver->Start();
+	mpReceiver->Start();
 
 	// create manager now
-	m_pSettManTref = std::make_unique<HobovrTrackingRef_SettManager>("trsm0");
+	mpSettingsManager = std::make_unique<HobovrTrackingRef_SettManager>("trsm0");
 	vr::VRServerDriverHost()->TrackedDeviceAdded(
-		m_pSettManTref->GetSerialNumber().c_str(),
+		mpSettingsManager->GetSerialNumber().c_str(),
 		vr::TrackedDeviceClass_TrackingReference,
-		m_pSettManTref.get()
+		mpSettingsManager.get()
 	);
 
-	// misc slow and fast threads
-	m_bThreadAlive = true;
-	m_ptSlowUpdateThread = std::make_unique<std::thread>(this->SlowUpdateThreadEnter, this);
-	m_ptFastThread = std::make_unique<std::thread>(this->FastThreadEnter, this);
+	// misc start timer
+	mpTimer = std::make_unique<hobovr::Timer>();
+	// and add some timed events
+	// equivalent of the old slow thread
+	mpTimer->registerTimer(
+		std::chrono::seconds(1),
+		[this]() {
+			for (auto &i : this->mvDevices){
+				i->UpdateDeviceBatteryCharge();
+				i->CheckForUpdates();
+			}
+			this->mpSettingsManager->UpdatePose();
+		}
+	);
+	// equivalent of the old fast thread
+	mpTimer->registerTimer(
+		std::chrono::milliseconds(1),
+		[this]() {
+			// fast part
+			// check of incoming udu events
+			if (this->mpSettingsManager->GetUduEvent()) {
+				DriverLog("udu change event");
+				this->muInternalBufferSize = util::udu2sizet(
+					this->mpSettingsManager->GetUduBuffer()
+				);		
+
+				this->UpdateServerDeviceList();
+				this->mpReceiver->ReallocInternalBuffer(this->muInternalBufferSize);
+			}
+
+			vr::VREvent_t vrEvent;
+			while (vr::VRServerDriverHost()->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
+				for (auto& i : this->mvDevices) {
+					i->ProcessEvent(vrEvent);
+				}
+
+			}
+		}
+	);
 
 	return VRInitError_None;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 
-	if (len != m_luPacketSize) {
+	if (len != muInternalBufferSize) {
 		// tell the poser it fucked up
 		// TODO: make different responses for different fuck ups...
 		// 							and detect different fuck ups
-		HoboVR_RespBufSize_t expected_size = {(uint32_t)m_luPacketSize};
+		HoboVR_RespBufSize_t expected_size = {(uint32_t)muInternalBufferSize};
 
 		HoboVR_PoserResp_t resp{
 			EPoserRespType_badDeviceList,
 			(HoboVR_RespData_t&)expected_size,
-			m_tag
+			mPacketTag
 		};
 
-		m_lscSocket->Send(
+		mlSocket->Send(
 			&resp,
 			sizeof(resp)
 		);
@@ -204,14 +216,14 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 
 		// so logs in steamvr take ages to complete... TOO BAD!
 		DriverLog("driver: posers are getting ignored~ expected %d bytes, got %d bytes~\n",
-			(int)m_luPacketSize,
+			(int)muInternalBufferSize,
 			(int)len
 		);
 
 		return; // do nothing on bad messages
 	}
 
-	if (m_bDeviceListSyncEvent)
+	if (mbUduEvent.load())
 		return; // sync in progress, do nothing
 
 
@@ -220,40 +232,9 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 	// need that + op no cap
 	char* buff2 = (char*)buff;
 
-	for (size_t i=0; i < m_vDevices.size(); i++){
-		switch (m_vDevices[i].type) {
-			case EHobovrDeviceNodeTypes::hmd: {
-				HeadsetDriver* device = (HeadsetDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff2 + buff_offset);
-
-				buff_offset += device->GetPacketSize();
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::controller: {
-				ControllerDriver* device = (ControllerDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff2 + buff_offset);
-
-				buff_offset += device->GetPacketSize();
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::tracker: {
-				TrackerDriver* device = (TrackerDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff2 + buff_offset);
-
-				buff_offset += device->GetPacketSize();
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::gaze_master: {
-				GazeMasterDriver* device = (GazeMasterDriver*)m_vDevices[i].handle;
-				device->UpdateState(buff2 + buff_offset);
-
-				buff_offset += device->GetPacketSize();
-				break;
-			}
-		}
+	for (auto& i : mvDevices){
+		i->UpdateState(buff2 + buff_offset);
+		buff_offset += i->GetPacketSize();
 	}
 
 	// DriverLog("got data: %f %f %f %d", meh[0], meh[1], meh[2], len);
@@ -261,89 +242,31 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 void CServerDriver_hobovr::Cleanup() {
 	DriverLog("driver cleanup called");
 	// set slow/fast thread alive signals to exit
-	m_bThreadAlive = false;
+	mpTimer.reset();
+
+	// release ownership to signal the receiver thread to finish
+	mlSocket.reset();
+
+	// call stop to make sure the receiver thread has joined
+	mpReceiver->Stop();
 
 	// send a "driver exit" notification to the poser
 	HoboVR_RespReserved_t fake_data = {};
 	HoboVR_PoserResp_t resp{
 		EPoserRespType_driverShutdown,
 		(HoboVR_RespData_t&)fake_data,
-		m_tag
+		mPacketTag
 	};
-	m_lscSocket->Send(&resp, sizeof(resp));
+	mlSocket->Send(&resp, sizeof(resp));
 
+	mvDevices.clear();
+	mvOffDevices.clear();
 
-	m_ptSlowUpdateThread->join();
-	m_ptFastThread->join();
-
-	for (auto& i : m_vDevices) {
-		switch (i.type) {
-			case EHobovrDeviceNodeTypes::hmd: {
-				HeadsetDriver* device = (HeadsetDriver*)i.handle;
-				free(device);
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::controller: {
-				ControllerDriver* device = (ControllerDriver*)i.handle;
-				free(device);
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::tracker: {
-				TrackerDriver* device = (TrackerDriver*)i.handle;
-				free(device);
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::gaze_master: {
-				GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
-				free(device);
-				break;
-			}
-		}
-	}
-
-	for (auto& i : m_vStandbyDevices) {
-		switch (i.type) {
-			case EHobovrDeviceNodeTypes::hmd: {
-				HeadsetDriver* device = (HeadsetDriver*)i.handle;
-				free(device);
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::controller: {
-				ControllerDriver* device = (ControllerDriver*)i.handle;
-				free(device);
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::tracker: {
-				TrackerDriver* device = (TrackerDriver*)i.handle;
-				free(device);
-				break;
-			}
-
-			case EHobovrDeviceNodeTypes::gaze_master: {
-				GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
-				free(device);
-				break;
-			}
-		}
-	}
-
-	m_vDevices.clear();
-	m_vStandbyDevices.clear();
-
-
-	// release ownership to signal the receiver thread to finish
-	m_lscSocket.reset();
-
-	// call stop to make sure the receiver thread has joined
-	m_pReceiver->Stop();
 
 	if (
 		vr::VRSettings()->GetBool(
@@ -364,318 +287,80 @@ void CServerDriver_hobovr::Cleanup() {
 	VR_CLEANUP_SERVER_DRIVER_CONTEXT();
 }
 
-void CServerDriver_hobovr::FastThread() {
-	DriverLog("FastThread started");
-
-	while (m_bThreadAlive) {
-		// check of incoming udu events
-		if (m_pSettManTref->GetUduEvent()) {
-			DriverLog("udu change event");
-			m_luPacketSize = util::udu2sizet(
-				m_pSettManTref->GetUduBuffer()
-			);		
-
-			m_bDeviceListSyncEvent = true;
-			m_pReceiver->ReallocInternalBuffer(m_luPacketSize);
-			UpdateServerDeviceList();
-			m_bDeviceListSyncEvent = false;
-		}
-
-		vr::VREvent_t vrEvent;
-		while (vr::VRServerDriverHost()->PollNextEvent(&vrEvent, sizeof(vrEvent))) {
-
-			for (auto& i : m_vDevices) {
-				switch (i.type) {
-					case EHobovrDeviceNodeTypes::hmd: {
-						HeadsetDriver* device = (HeadsetDriver*)i.handle;
-						device->ProcessEvent(vrEvent);
-						break;
-					}
-
-					case EHobovrDeviceNodeTypes::controller: {
-						ControllerDriver* device = (ControllerDriver*)i.handle;
-						device->ProcessEvent(vrEvent);
-						break;
-					}
-
-					case EHobovrDeviceNodeTypes::tracker: {
-						TrackerDriver* device = (TrackerDriver*)i.handle;
-						device->ProcessEvent(vrEvent);
-						break;
-					}
-
-					case EHobovrDeviceNodeTypes::gaze_master: {
-						GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
-						device->ProcessEvent(vrEvent);
-						break;
-					}
-				}
-			}
-
-		}
-
-		std::this_thread::sleep_for(std::chrono::nanoseconds(1));
-	}
-	DriverLog("FastThread ended");
-}
-
+///////////////////////////////////////////////////////////////////////////////
 // Updates currently running devices
-// TODO: do that without powering off all devices first...
+///////////////////////////////////////////////////////////////////////////////
+
 void CServerDriver_hobovr::UpdateServerDeviceList() {
-	for (auto i : m_vDevices) {
-		switch (i.type) {
-			case EHobovrDeviceNodeTypes::hmd: {
-				HeadsetDriver* device = (HeadsetDriver*)i.handle;
-				device->PowerOff();
-				break;
+	// pause packet processing
+	mbUduEvent.store(true);
+
+	// temporarily move all devices into the off list
+	std::move(mvDevices.begin(), mvDevices.end(), std::back_inserter(mvOffDevices));
+
+	mvDevices.clear();
+
+	// assemble a list of new active devices
+	std::vector<hobovr::IHobovrDevice> tmp;
+
+	std::unordered_map<char, int> counters;
+
+	// fill map with zeros for appropriate keys
+	for (char i : "htcg")
+		counters[i] = 0;
+
+	for (char i : mpSettingsManager->GetUduBuffer()) {
+		std::string target_serial = std::string(&i, 1) + std::to_string(counters[i]);
+		// first try to find an old device that had this serial
+		auto res = std::find_if(
+			mvOffDevices.begin(),
+			mvDevices.end(),
+			[target_serial](const std::unique_ptr<hobovr::IHobovrDevice>& val) -> bool {
+				return target_serial == val->GetSerialNumber();
 			}
+		);
 
-			case EHobovrDeviceNodeTypes::controller: {
-				ControllerDriver* device = (ControllerDriver*)i.handle;
-				device->PowerOff();
-				break;
-			}
+		// old device found, no need to create a new one
+		if (res != mvOffDevices.end()) {
+			auto device = std::move(*res);
 
-			case EHobovrDeviceNodeTypes::tracker: {
-				TrackerDriver* device = (TrackerDriver*)i.handle;
-				device->PowerOff();
-				break;
-			}
+			// push device to the on list
+			mvDevices.push_back(std::move(device));
 
-			case EHobovrDeviceNodeTypes::gaze_master: {
-				GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
-				device->PowerOff();
-				break;
-			}
-		}
-		m_vStandbyDevices.push_back(i);
-	}
+			// remove device from the off list
+			mvOffDevices.erase(res, res+1);
 
-	m_vDevices.clear();
-
-	auto uduBufferCopy = m_pSettManTref->GetUduBuffer();
-
-	int counter_hmd = 0;
-	int counter_cntrlr = 0;
-	int counter_trkr = 0;
-	int gaze_master_counter = 0;
-
-	int controller_hs = 1;
-
-	for (char i : uduBufferCopy) {
-		if (i == 'h') {
-			auto target = "h" + std::to_string(counter_hmd);
-			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
-				switch (d.type) {
-					case EHobovrDeviceNodeTypes::hmd:
-						return ((HeadsetDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::controller:
-						return ((ControllerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::tracker:
-						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::gaze_master:
-						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
-				}
-				return false;
-			};
-
-			auto res = std::find_if(m_vStandbyDevices.begin(), m_vStandbyDevices.end(), key);
-			if (res != m_vStandbyDevices.end()) {
-				((HeadsetDriver*)((*res).handle))->PowerOn();
-				m_vDevices.push_back(*res);
-				m_vStandbyDevices.erase(res);
-			} else {
-				HeadsetDriver* temp = new HeadsetDriver(
-					"h" + std::to_string(counter_hmd)
-				);
-
-				vr::VRServerDriverHost()->TrackedDeviceAdded(
-					temp->GetSerialNumber().c_str(),
-					vr::TrackedDeviceClass_HMD,
-					temp
-				);
-				m_vDevices.push_back({EHobovrDeviceNodeTypes::hmd, temp});
-			}
-
-			counter_hmd++;
-		} else if (i == 'c') {
-			auto target = "c" + std::to_string(counter_cntrlr);
-			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
-				switch (d.type) {
-					case EHobovrDeviceNodeTypes::hmd:
-						return ((HeadsetDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::controller:
-						return ((ControllerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::tracker:
-						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::gaze_master:
-						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
-				}
-				return false;
-			};
-
-			auto res = std::find_if(m_vStandbyDevices.begin(), m_vStandbyDevices.end(), key);
-			if (res != m_vStandbyDevices.end()) {
-				((ControllerDriver*)((*res).handle))->PowerOn();
-				m_vDevices.push_back(*res);
-				m_vStandbyDevices.erase(res);
-			} else {
-				ControllerDriver* temp = new ControllerDriver(
-					controller_hs,
-					"c" + std::to_string(counter_cntrlr),
-					m_lscSocket
-				);
-
-				vr::VRServerDriverHost()->TrackedDeviceAdded(
-					temp->GetSerialNumber().c_str(),
-					vr::TrackedDeviceClass_Controller,
-					temp
-				);
-				m_vDevices.push_back({EHobovrDeviceNodeTypes::controller, temp});
-
-			}
-
-			controller_hs = (controller_hs) ? 0 : 1;
-			counter_cntrlr++;
-
-		} else if (i == 't') {
-			auto target = "t" + std::to_string(counter_trkr);
-			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
-				switch (d.type) {
-					case EHobovrDeviceNodeTypes::hmd:
-						return ((HeadsetDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::controller:
-						return ((ControllerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::tracker:
-						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::gaze_master:
-						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
-				}
-				return false;
-			};
-
-			auto res = std::find_if(m_vStandbyDevices.begin(), m_vStandbyDevices.end(), key);
-			if (res != m_vStandbyDevices.end()) {
-				((TrackerDriver*)((*res).handle))->PowerOn();
-				m_vDevices.push_back(*res);
-				m_vStandbyDevices.erase(res);
-			} else {
-				TrackerDriver* temp = new TrackerDriver(
-					"t" + std::to_string(counter_trkr),
-					m_lscSocket
-				);
-
-				vr::VRServerDriverHost()->TrackedDeviceAdded(
-					temp->GetSerialNumber().c_str(),
-					vr::TrackedDeviceClass_GenericTracker,
-					temp
-				);
-				m_vDevices.push_back({EHobovrDeviceNodeTypes::tracker, temp});
-
-			}
-
-			counter_trkr++;
-		} else if (i == 'g') {
-			auto target = "g" + std::to_string(gaze_master_counter);
-			auto key = [target](HobovrDeviceStorageNode_t d)->bool {
-				switch (d.type) {
-					case EHobovrDeviceNodeTypes::hmd:
-						return ((HeadsetDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::controller:
-						return ((ControllerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::tracker:
-						return ((TrackerDriver*)d.handle)->GetSerialNumber() == target;
-
-					case EHobovrDeviceNodeTypes::gaze_master:
-						return ((GazeMasterDriver*)d.handle)->GetSerialNumber() == target;
-				}
-				return false;
-			};
-
-			auto res = std::find_if(m_vStandbyDevices.begin(), m_vStandbyDevices.end(), key);
-			if (res != m_vStandbyDevices.end()) {
-				((GazeMasterDriver*)((*res).handle))->PowerOn();
-				m_vDevices.push_back(*res);
-				m_vStandbyDevices.erase(res);
-			}
-
-			else {
-				GazeMasterDriver* temp = new GazeMasterDriver("g" + std::to_string(gaze_master_counter));
-
-				vr::VRServerDriverHost()->TrackedDeviceAdded(
-					temp->GetSerialNumber().c_str(),
-					vr::TrackedDeviceClass_GenericTracker,
-					temp
-				);
-				m_vDevices.push_back({EHobovrDeviceNodeTypes::gaze_master, temp});
-
-			}
-		}
-	}
-
-}
-
-void CServerDriver_hobovr::SlowUpdateThread() {
-	DriverLog("driver: slow update thread started\n");
-
-	while (m_bThreadAlive){
-		for (auto &i : m_vDevices){
-			switch (i.type) {
-				case EHobovrDeviceNodeTypes::hmd: {
-					HeadsetDriver* device = (HeadsetDriver*)i.handle;
-					device->UpdateDeviceBatteryCharge();
-					device->CheckForUpdates();
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::controller: {
-					ControllerDriver* device = (ControllerDriver*)i.handle;
-					device->UpdateDeviceBatteryCharge();
-					device->CheckForUpdates();
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::tracker: {
-					TrackerDriver* device = (TrackerDriver*)i.handle;
-					device->UpdateDeviceBatteryCharge();
-					device->CheckForUpdates();
-					break;
-				}
-
-				case EHobovrDeviceNodeTypes::gaze_master: {
-					GazeMasterDriver* device = (GazeMasterDriver*)i.handle;
-					device->UpdateDeviceBatteryCharge();
-					device->CheckForUpdates();
-					break;
-				}
-			}
+			continue;
 		}
 
-		std::this_thread::sleep_for(std::chrono::seconds(5));
+		// couldn't find an old device, time to make a new one
+		std::unique_ptr<hobovr::IHobovrDevice> new_device = hobovr::createDeviceFactory(
+			i,
+			counters[i],
+			mlSocket
+		);
 
-		m_pSettManTref->UpdatePose();
+		// push device to the on list
+		mvDevices.push_back(std::move(new_device));
 
+		counters[i]++;
 	}
-	DriverLog("driver: slow update thread closed\n");
 
+	// power off unused devices
+	for (auto& i : mvOffDevices)
+		i->PowerOff();
+
+
+	// resume packet processing
+	mbUduEvent.store(false);
 }
 
 CServerDriver_hobovr g_hobovrServerDriver;
 
-//-----------------------------------------------------------------------------
+///////////////////////////////////////////////////////////////////////////////
 // Purpose: driverFactory
-//-----------------------------------------------------------------------------
+///////////////////////////////////////////////////////////////////////////////
+
 HMD_DLL_EXPORT void *HmdDriverFactory(
 	const char *pInterfaceName,
 	int *pReturnCode
