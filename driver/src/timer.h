@@ -32,11 +32,6 @@ public:
 	template<class Rep, class Duration>
 	void registerTimer(const std::chrono::duration<Rep, Duration>& delay, std::function<void(void)> func);
 
-	template<class Rep, class Duration>
-	void setGlobalDelay(const std::chrono::duration<Rep, Duration>& delay);
-
-	std::chrono::nanoseconds getGlobalDelay();
-
 private:
 	void internal_thread();
 
@@ -45,7 +40,6 @@ private:
 	std::mutex m_mutex;
 	std::atomic<bool> m_alive{true};
 
-	std::atomic<std::chrono::nanoseconds> m_delay{10s};
 	std::vector<std::pair<std::function<std::chrono::nanoseconds(void)>, std::chrono::nanoseconds>> m_timers;
 };
 
