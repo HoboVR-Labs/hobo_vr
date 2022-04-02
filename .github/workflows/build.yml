@@ -15,42 +15,30 @@ on:
         options:
           - Debug
           - Release
-      branchName:
-        description: 'Target branch to build'
-        default: master
-        required: false
-        type: string
 
 jobs:
   env-setup:
     runs-on: ubuntu-latest
     outputs:
       buildType: ${{steps.assign_build_input.outputs.buildType}}
-      branchName: ${{steps.assign_branch_input.outputs.branchName}}
-
     steps:
       - name: Check buildType Input
         id: assign_build_input
         run: echo "::set-output name=buildType::${{(github.event.inputs.buildType||'Release')}}"
 
-      - name: Check branchName Input
-        id: assign_branch_input
-        run: echo "::set-output name=branchName::${{(github.event.inputs.branchName||'master')}}"
-
       - name: Validate Inputs
         id: check_input_vals
-        run: echo "{branchName:${{github.event.inputs.branchName}}, buildType:${{github.event.inputs.buildType}}}"
+        run: echo "{buildType:'${{github.event.inputs.buildType}}'}"
 
       - name: Validate Outputs
         id: check_output_vals
-        run: echo "{branchName:${{steps.assign_branch_input.outputs.branchName}}, buildType:${{steps.assign_build_input.outputs.buildType}}}"
+        run: echo "{buildType:'${{steps.assign_build_input.outputs.buildType}}'}"
 
   build-ubuntu-latest:
     needs: [env-setup]
     uses: ./.github/workflows/cmake.yml
     with:
       platform: ubuntu-latest
-      branchName: ${{needs.env-setup.outputs.branchName}}
       buildType: ${{needs.env-setup.outputs.buildType}}
 
   build-windows-latest:
@@ -58,5 +46,4 @@ jobs:
     uses: ./.github/workflows/cmake.yml
     with:
       platform: windows-latest
-      branchName: ${{needs.env-setup.outputs.branchName}}
       buildType: ${{needs.env-setup.outputs.buildType}}
