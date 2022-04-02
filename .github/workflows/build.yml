@@ -32,9 +32,14 @@ jobs:
         id: assign_build_input
         run: echo "::set-output name=buildType::${{(github.event.inputs.buildType||'Release')}}"
 
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+
       - name: Check branchName Input
         id: assign_branch_input
-        run: echo "::set-output name=branchName::${{(github.event.inputs.branchName||${GITHUB_REF##*/})}}"
+        run: echo "::set-output name=branchName::${{(github.event.inputs.branchName||steps.extract_branch.outputs.branch)}}"
 
       - name: Validate Inputs
         id: check_input_vals
