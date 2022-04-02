@@ -43,11 +43,11 @@ jobs:
 
       - name: Validate Inputs
         id: check_input_vals
-        run: echo "{branchName:${{github.event.inputs.branchName}}, buildType:${{github.event.inputs.buildType}}}"
+        run: echo "{branchName:'${{github.event.inputs.branchName}}', buildType:'${{github.event.inputs.buildType}}'}"
 
       - name: Validate Outputs
         id: check_output_vals
-        run: echo "{branchName:${{steps.assign_branch_input.outputs.branchName}}, buildType:${{steps.assign_build_input.outputs.buildType}}}"
+        run: echo "{branchName:'${{steps.assign_branch_input.outputs.branchName}}', buildType:'${{steps.assign_build_input.outputs.buildType}}'}"
 
   build-ubuntu-latest:
     needs: [env-setup]
