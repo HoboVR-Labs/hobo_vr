@@ -13,11 +13,6 @@ on:
         required: true
         default: 'Release'
         type: string
-      branchName:
-        description: 'Target branch to build'
-        default: 'master'
-        required: false
-        type: string
 
 jobs:
   build:
