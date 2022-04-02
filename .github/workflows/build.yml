@@ -34,7 +34,7 @@ jobs:
 
       - name: Extract branch name
         shell: bash
-        run: echo "##[set-output name=branch]$(echo ${{github.ref_name}})"
+        run: echo "##[set-output name=branch]$(echo ${{(github.source_ref||github.ref_name)}})"
         id: extract_branch
 
       - name: Check branchName Input
