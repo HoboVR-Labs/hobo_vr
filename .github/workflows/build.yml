@@ -28,13 +28,14 @@ jobs:
       branchName: ${{steps.assign_branch_input.outputs.branchName}}
 
     steps:
+      - name
       - name: Check buildType Input
         id: assign_build_input
         run: echo "::set-output name=buildType::${{(github.event.inputs.buildType||'Release')}}"
 
       - name: Extract branch name
         shell: bash
-        run: echo "##[set-output name=branch]$(echo ${{(github.source_ref||github.ref_name)}})"
+        run: echo "##[set-output name=branch]$(echo ${{env.GITHUB_REF_SLUG}})"
         id: extract_branch
 
       - name: Check branchName Input
