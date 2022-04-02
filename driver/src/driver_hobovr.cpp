@@ -340,6 +340,9 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 			mlSocket
 		);
 
+		if (!new_device)
+			continue;
+
 		// push device to the on list
 		mvDevices.push_back(std::move(new_device));
 

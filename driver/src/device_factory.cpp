@@ -28,11 +28,16 @@ std::unique_ptr<hobovr::IHobovrDevice> hobovr::createDeviceFactory(
 
 			auto tmp = std::make_unique<HeadsetDriver>(type + std::to_string(number));
 
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
+			bool resp = vr::VRServerDriverHost()->TrackedDeviceAdded(
 				tmp->GetSerialNumber().c_str(),
 				vr::TrackedDeviceClass_HMD,
 				tmp.get()
 			);
+
+			if (!resp) {
+				DriverLog("%s: Failed to create device");
+				return nullptr;
+			}
 
 			return tmp;
 		}
@@ -46,11 +51,16 @@ std::unique_ptr<hobovr::IHobovrDevice> hobovr::createDeviceFactory(
 				soc
 			);
 
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
+			bool resp = vr::VRServerDriverHost()->TrackedDeviceAdded(
 				tmp->GetSerialNumber().c_str(),
 				vr::TrackedDeviceClass_Controller,
 				tmp.get()
 			);
+
+			if (!resp) {
+				DriverLog("%s: Failed to create device");
+				return nullptr;
+			}
 
 			return tmp;	
 		}
@@ -63,11 +73,16 @@ std::unique_ptr<hobovr::IHobovrDevice> hobovr::createDeviceFactory(
 				soc
 			);
 
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
+			bool resp = vr::VRServerDriverHost()->TrackedDeviceAdded(
 				tmp->GetSerialNumber().c_str(),
 				vr::TrackedDeviceClass_GenericTracker,
 				tmp.get()
 			);
+
+			if (!resp) {
+				DriverLog("%s: Failed to create device");
+				return nullptr;
+			}
 
 			return tmp;
 		}
@@ -77,11 +92,16 @@ std::unique_ptr<hobovr::IHobovrDevice> hobovr::createDeviceFactory(
 
 			auto tmp = std::make_unique<GazeMasterDriver>(type + std::to_string(number));
 
-			vr::VRServerDriverHost()->TrackedDeviceAdded(
+			bool resp = vr::VRServerDriverHost()->TrackedDeviceAdded(
 				tmp->GetSerialNumber().c_str(),
 				vr::TrackedDeviceClass_GenericTracker,
 				tmp.get()
 			);
+
+			if (!resp) {
+				DriverLog("%s: Failed to create device");
+				return nullptr;
+			}
 
 			return tmp;
 		}
