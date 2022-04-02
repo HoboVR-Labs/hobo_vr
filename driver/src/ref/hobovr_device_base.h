@@ -86,6 +86,7 @@ namespace hobovr {
 
 	class IHobovrDevice: public vr::ITrackedDeviceServerDriver {
 	public:
+		virtual ~IHobovrDevice() = default;
 		virtual std::string GetSerialNumber() const = 0;
 		virtual void PowerOff() = 0;
 		virtual void PowerOn() = 0;
