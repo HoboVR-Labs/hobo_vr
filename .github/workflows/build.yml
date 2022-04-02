@@ -17,7 +17,6 @@ on:
           - Release
       branchName:
         description: 'Target branch to build'
-        default: master
         required: false
         type: string
 
@@ -35,7 +34,7 @@ jobs:
 
       - name: Check branchName Input
         id: assign_branch_input
-        run: echo "::set-output name=branchName::${{(github.event.inputs.branchName||'master')}}"
+        run: echo "::set-output name=branchName::${{(github.event.inputs.branchName||${GITHUB_REF##*/})}}"
 
       - name: Validate Inputs
         id: check_input_vals
