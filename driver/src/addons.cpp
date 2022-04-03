@@ -7,11 +7,12 @@
 
 GazeMasterDriver::GazeMasterDriver(
     std::string myserial
-): HobovrDevice(myserial, "hobovr_gaze_master") {
-    m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_gaze_master";
-    m_sBindPath = "{hobovr}/input/hobovr_gaze_master_profile.json";
-
-}
+): HobovrDevice(
+    myserial,
+    "hobovr_gaze_master",
+    "{hobovr}/rendermodels/hobovr_gaze_master",
+    "{hobovr}/input/hobovr_gaze_master_profile.json"
+) {}
 
 ////////////////////////////////////////////////////////////////////////////////
 

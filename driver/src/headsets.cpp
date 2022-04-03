@@ -10,11 +10,12 @@
 
 HeadsetDriver::HeadsetDriver(
     std::string myserial
-):HobovrDevice(myserial, "hobovr_hmd_m") {
-
-    m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_hmd_mh0";
-    m_sBindPath = "{hobovr}/input/hobovr_hmd_profile.json";
-
+): HobovrDevice(
+    myserial,
+    "hobovr_hmd",
+    "{hobovr}/rendermodels/hobovr_hmd_mh0",
+    "{hobovr}/input/hobovr_hmd_profile.json"
+) {
     m_flSecondsFromVsyncToPhotons = vr::VRSettings()->GetFloat(
         k_pch_Hmd_Section,
         k_pch_Hmd_SecondsFromVsyncToPhotons_Float

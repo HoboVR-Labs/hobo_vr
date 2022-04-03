@@ -11,11 +11,13 @@
 TrackerDriver::TrackerDriver(
     std::string myserial,
     const std::shared_ptr<hobovr::tcp_socket> ReceiverObj
-): HobovrDevice(myserial, "hobovr_tracker_m", ReceiverObj) {
-
-    m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_tracker_mt0";
-    m_sBindPath = "{hobovr}/input/hobovr_tracker_profile.json";
-}
+): HobovrDevice(
+    myserial,
+    "hobovr_tracker",
+    "{hobovr}/rendermodels/hobovr_tracker_mt0",
+    "{hobovr}/input/hobovr_tracker_profile.json",
+    ReceiverObj
+) {}
 
 ////////////////////////////////////////////////////////////////////////////////
 

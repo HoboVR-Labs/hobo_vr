@@ -111,15 +111,19 @@ namespace hobovr {
 	class HobovrDevice: public IHobovrDevice {
 	public:
 		inline HobovrDevice(
-			std::string myserial,
-			std::string deviceBreed,
+			const std::string& serial,
+			const std::string& model,
+			const std::string& renderModelPath,
+			const std::string& bindingPath,
 			std::shared_ptr<tcp_socket> commSocket=nullptr
-		): m_pBrodcastSocket(commSocket), m_sSerialNumber(myserial) {
+		): m_pBrodcastSocket(commSocket),
+			m_sRenderModelPath(renderModelPath),
+			m_sBindPath(bindingPath),
+			m_sSerialNumber(serial),
+			m_sModelNumber(model) {
 
 			m_unObjectId = vr::k_unTrackedDeviceIndexInvalid;
 			m_ulPropertyContainer = vr::k_ulInvalidPropertyContainer;
-
-			m_sModelNumber = deviceBreed + m_sSerialNumber;
 
 			m_fPoseTimeOffset = vr::VRSettings()->GetFloat(k_pch_Hobovr_Section, k_pch_Hobovr_PoseTimeOffset_Float);
 			char buff[1024];
@@ -127,7 +131,7 @@ namespace hobovr {
 			m_sUpdateUrl = buff;
 
 			DriverLog("device: created\n");
-			DriverLog("device: breed: %s\n", deviceBreed.c_str());
+			DriverLog("device: breed: %s\n", model.c_str());
 			DriverLog("device: serial: %s\n", m_sSerialNumber.c_str());
 			DriverLog("device: model: %s\n", m_sModelNumber.c_str());
 			DriverLog("device: pose time offset: %f\n", m_fPoseTimeOffset);
@@ -510,12 +514,6 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 		vr::TrackedDeviceIndex_t m_unObjectId;
 		vr::PropertyContainerHandle_t m_ulPropertyContainer;
 
-
-		// path to the device's render model, should be populated in the constructor of the derived class
-		std::string m_sRenderModelPath;
-		// path to the device's input bindings, should be populated in the constructor of the derived class
-		std::string m_sBindPath;
-
 		// components that this device has, should be populated in the constructor of the derived class
 		std::vector<HobovrComponent_t> m_vComponents;
 
@@ -534,6 +532,10 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 		// is device charing, 0-no, 1-yes, only used if HasBattery is true
 		bool m_bDeviceIsCharging;
 
+		// path to the device's render model
+		std::string m_sRenderModelPath;
+		// path to the device's input bindings
+		std::string m_sBindPath;
 		// url to which steamvr will redirect if checkForDeviceUpdates returns true on Activate, set trough the config
 		std::string m_sUpdateUrl;
 		// steamvr uses this to identify devices, no need for you to touch this after init

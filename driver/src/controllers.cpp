@@ -12,13 +12,15 @@ ControllerDriver::ControllerDriver(
     bool side,
     std::string myserial,
     const std::shared_ptr<hobovr::tcp_socket> ReceiverObj
-): HobovrDevice(myserial, "hobovr_controller_m", ReceiverObj), m_bHandSide(side) {
-
-    m_sRenderModelPath = "{hobovr}/rendermodels/hobovr_controller_mc0";
-    m_sBindPath = "{hobovr}/input/hobovr_controller_profile.json";
-
-    m_skeletonHandle = vr::k_ulInvalidInputComponentHandle;
-}
+): HobovrDevice(
+        myserial,
+        "hobovr_controller",
+        "{hobovr}/rendermodels/hobovr_controller_mc0",
+        "{hobovr}/input/hobovr_controller_profile.json",
+        ReceiverObj
+    ),
+    m_skeletonHandle(vr::k_ulInvalidInputComponentHandle),
+    m_bHandSide(side) {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
