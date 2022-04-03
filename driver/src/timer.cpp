@@ -24,23 +24,6 @@ Timer::~Timer() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template<class Rep, class Duration>
-void Timer::registerTimer(
-	const std::chrono::duration<Rep, Duration>& delay,
-	std::function<void(void)> func
-) {
-	if (delay <= 0s || func == nullptr)
-		return; // do nothing in case of bad args
-
-	std::unique_lock<std::mutex> lk(m_mutex);
-
-	// calculate next callback wakeup time and register it
-	auto next_wakeup = std::chrono::high_resolution_clock::now().time_since_epoch() + delay;
-	m_timers.push_back({[=]() -> std::chrono::nanoseconds {func(); return delay;}, next_wakeup});
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
 void Timer::internal_thread() {
 	while(m_alive.load()) {
 		std::unique_lock<std::mutex> lk(m_mutex);

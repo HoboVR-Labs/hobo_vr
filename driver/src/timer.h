@@ -29,8 +29,20 @@ public:
 	Timer& operator= (Timer) = delete;
 	Timer& operator= (Timer&&) = delete;
 
-	template<class Rep, class Duration>
-	void registerTimer(const std::chrono::duration<Rep, Duration>& delay, std::function<void(void)> func);
+	template <class Rep, class Duration>
+	inline void registerTimer(
+		const std::chrono::duration<Rep, Duration>& delay,
+		std::function<void(void)> func
+	) {
+		if (delay <= 0s || func == nullptr)
+			return; // do nothing in case of bad args
+
+		std::unique_lock<std::mutex> lk(m_mutex);
+
+		// calculate next callback wakeup time and register it
+		auto next_wakeup = std::chrono::high_resolution_clock::now().time_since_epoch() + delay;
+		m_timers.push_back({[=]() -> std::chrono::nanoseconds {func(); return delay;}, next_wakeup});
+	}
 
 private:
 	void internal_thread();
