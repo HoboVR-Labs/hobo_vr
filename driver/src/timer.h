@@ -37,7 +37,7 @@ public:
 		if (delay <= 0s || func == nullptr)
 			return; // do nothing in case of bad args
 
-		std::unique_lock<std::mutex> lk(m_mutex);
+		std::lock_guard lk(m_mutex);
 
 		// calculate next callback wakeup time and register it
 		auto next_wakeup = std::chrono::high_resolution_clock::now().time_since_epoch() + delay;

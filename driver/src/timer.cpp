@@ -26,25 +26,31 @@ Timer::~Timer() {
 
 void Timer::internal_thread() {
 	while(m_alive.load()) {
-		std::unique_lock<std::mutex> lk(m_mutex);
-
 		// calculate next sleep duration
-		auto next_wakeup = std::chrono::high_resolution_clock::now().time_since_epoch() + 10s;
+		auto next_wakeup = std::chrono::high_resolution_clock::now().time_since_epoch() + 3s;
+
+		{ // locked context, to not lock while in sleep
+		std::lock_guard lk(m_mutex);
+
 		for (auto& i : m_timers) {
 			if (i.second < next_wakeup)
 				next_wakeup = i.second;
+		}
 		}
 
 		// sleep
 		std::this_thread::sleep_until(
 			std::chrono::time_point<std::chrono::high_resolution_clock>(next_wakeup)
 		);
-
-		// process callbacks
 		auto now = std::chrono::high_resolution_clock::now().time_since_epoch();
+
+		{ // locked context, to not lock while in sleep
+		std::lock_guard lk(m_mutex);
+		// process callbacks
 		for (auto& i : m_timers) {
 			if (i.second <= now)
 				i.second = now + i.first();
+		}
 		}
 	}
 }
