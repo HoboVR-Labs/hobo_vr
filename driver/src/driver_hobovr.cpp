@@ -175,8 +175,13 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 					mpSettingsManager->GetUduBuffer()
 				);		
 
+				// pause packet processing
+				mbUduEvent.store(true);
 				UpdateServerDeviceList();
 				mpReceiver->ReallocInternalBuffer(muInternalBufferSize);
+				// resume packet processing
+				mbUduEvent.store(false);
+				DriverLog("udu change event end");
 			}
 
 			vr::VREvent_t vrEvent;
@@ -237,7 +242,7 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 		buff_offset += i->GetPacketSize();
 	}
 
-	// DriverLog("got data: %f %f %f %d", meh[0], meh[1], meh[2], len);
+	DebugDriverLog("got data: %d %p '%c%c%c%c'", len, buff2, buff2[0], buff2[1], buff2[2], buff2[3]);
 
 
 }
@@ -292,8 +297,6 @@ void CServerDriver_hobovr::Cleanup() {
 ///////////////////////////////////////////////////////////////////////////////
 
 void CServerDriver_hobovr::UpdateServerDeviceList() {
-	// pause packet processing
-	mbUduEvent.store(true);
 
 	// temporarily move all devices into the off list
 	std::move(mvDevices.begin(), mvDevices.end(), std::back_inserter(mvOffDevices));
@@ -316,13 +319,21 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 		auto res = std::find_if(
 			mvOffDevices.begin(),
 			mvOffDevices.end(),
-			[target_serial](const std::unique_ptr<hobovr::IHobovrDevice>& val) -> bool {
-				return target_serial == val->GetSerialNumber();
+			[&target_serial](const std::unique_ptr<hobovr::IHobovrDevice>& val) {
+				bool res = target_serial == val->GetSerialNumber();
+				DebugDriverLog(
+					"\t'%s' == '%s' => %d",
+					target_serial.c_str(),
+					val->GetSerialNumber().c_str(),
+					(int)(res)
+				);
+				return res;
 			}
 		);
 
 		// old device found, no need to create a new one
 		if (res != mvOffDevices.end()) {
+			DriverLog("%s: '%s' found, moving to the next...", __FUNCTION__, target_serial.c_str());
 			auto device = std::move(*res);
 
 			// push device to the on list
@@ -331,8 +342,11 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 			// remove device from the off list
 			mvOffDevices.erase(res);
 
+			counters[i]++;
 			continue;
 		}
+
+		DriverLog("%s: %p == %p => %d", __FUNCTION__, res, mvOffDevices.end(), res != mvOffDevices.end());
 		DriverLog("%s: '%s' not found...", __FUNCTION__, target_serial.c_str());
 
 		// couldn't find an old device, time to make a new one
@@ -343,7 +357,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 		);
 
 		if (!new_device) {
-			DriverLog("%s: failed to create device '%s'", __FUNCTION__, target_serial.c_str());
+			DriverLog("%s: failed to create device '%s', trying again...", __FUNCTION__, target_serial.c_str());
 			continue;
 		}
 
@@ -360,8 +374,6 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 		i->PowerOff();
 
 
-	// resume packet processing
-	mbUduEvent.store(false);
 }
 
 CServerDriver_hobovr g_hobovrServerDriver;
