@@ -41,6 +41,7 @@ file(GLOB poser_src
 )
 
 add_executable(${TARGET_NAME}
+  "../../../../driver/src/timer.cpp"
 	${poser_src}
 )
 set_target_properties(
