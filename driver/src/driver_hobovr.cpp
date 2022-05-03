@@ -76,8 +76,6 @@ private:
 
 	size_t muInternalBufferSize = 16;
 
-	PacketEndTag mPacketTag = {'\t', '\r', '\n'};
-
 	std::shared_ptr<hobovr::tcp_socket> mlSocket;
 	std::unique_ptr<hobovr::tcp_receiver_loop> mpReceiver;
 	std::unique_ptr<hobovr::Timer> mpTimer;
@@ -135,7 +133,7 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 
 	mpReceiver = std::make_unique<hobovr::tcp_receiver_loop>(
 		mlSocket,
-		mPacketTag,
+		g_EndTag,
 		std::bind(&CServerDriver_hobovr::OnPacket, this, std::placeholders::_1, std::placeholders::_2),
 		16
 	);
@@ -210,7 +208,7 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 		HoboVR_PoserResp_t resp{
 			EPoserRespType_badDeviceList,
 			(HoboVR_RespData_t&)expected_size,
-			mPacketTag
+			g_EndTag
 		};
 
 		mlSocket->Send(
@@ -265,7 +263,7 @@ void CServerDriver_hobovr::Cleanup() {
 	HoboVR_PoserResp_t resp{
 		EPoserRespType_driverShutdown,
 		(HoboVR_RespData_t&)fake_data,
-		mPacketTag
+		g_EndTag
 	};
 	mlSocket->Send(&resp, sizeof(resp));
 

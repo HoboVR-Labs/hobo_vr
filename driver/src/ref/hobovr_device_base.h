@@ -388,6 +388,7 @@ namespace hobovr {
 							// haptic!
 							HoboVR_HapticResponse_t msg;
 							// copy the device name
+							memset(msg.name, 0, sizeof(msg.name));
 							memcpy(
 								msg.name,
 								m_sSerialNumber.c_str(),
@@ -399,9 +400,15 @@ m_sSerialNumber.size() * !!(m_sSerialNumber.size() < 10) + 10 * !(m_sSerialNumbe
 							msg.frequency = vrEvent.data.hapticVibration.fFrequency;
 							msg.amplitude = vrEvent.data.hapticVibration.fAmplitude;
 
+							HoboVR_PoserResp_t resp {
+								EPoserRespType_haptics,
+								(HoboVR_RespData_t&)msg,
+								g_EndTag
+							};
+
 							m_pBrodcastSocket->Send(
-								&msg,
-								sizeof(msg)
+								&resp,
+								sizeof(resp)
 							);
 					}
 				}

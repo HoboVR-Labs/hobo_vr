@@ -21,12 +21,7 @@ struct PacketEndTag {
     // char d;
 };
 
-struct HoboVR_HapticResponse_t {
-    char name[10]; // device name: "%c%d", device_type, id
-    double duration_seconds;
-    double frequency;
-    double amplitude;
-};
+static constexpr PacketEndTag g_EndTag = {'\t', '\r', '\n'};
 
 enum EHoboVR_PoserRespTypes {
     EPoserRespType_invalid = 0,
@@ -35,7 +30,16 @@ enum EHoboVR_PoserRespTypes {
 
     EPoserRespType_driverShutdown = 20, // driver shutdown was called, poser needs to exit
 
+    EPoserRespType_haptics = 30, // device responds with a haptics packet
+
     EPoserRespType_max
+};
+
+struct HoboVR_HapticResponse_t {
+    char name[10]; // device name: "%c%d", device_type, id
+    double duration_seconds;
+    double frequency;
+    double amplitude;
 };
 
 struct HoboVR_RespBufSize_t {
@@ -49,6 +53,7 @@ struct HoboVR_RespReserved_t {
 typedef union {
     HoboVR_RespReserved_t reserved;
     HoboVR_RespBufSize_t buf_size;
+    HoboVR_HapticResponse_t haptics;
 } HoboVR_RespData_t;
 
 struct HoboVR_PoserResp_t {
