@@ -431,7 +431,7 @@ void send_packet() {
 			process_tracking_response((HoboVR_PoserResp_t*)buff);
 		}
 
-		printf("sent %ld\n", sizeof(pose));
+		printf("sent %zd\n", sizeof(pose));
 
 
 		break;
@@ -460,7 +460,7 @@ void send_packet() {
 			process_tracking_response((HoboVR_PoserResp_t*)buff);
 		}
 
-		printf("sent %ld\n", sizeof(pose));
+		printf("sent %zd\n", sizeof(pose));
 
 		break;
 
@@ -475,7 +475,7 @@ void send_packet() {
 
 	// printf("packet processing end\n");
 
-	time += 0.016;
+	time += 0.016f;
 }
 
 ////////////////////////////////////////////////////////////////////
