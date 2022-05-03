@@ -273,7 +273,7 @@ int setup_device_list() {
 	int res = manager_sock->Send(&msg, sizeof(msg));
 	if (res != sizeof(msg)) {
 		printf("failed to send udu descriptor: %d\n", lerrno);
-		return -ECOMM;
+		return -ECONNREFUSED;
 	}
 
 	char buff[256];
