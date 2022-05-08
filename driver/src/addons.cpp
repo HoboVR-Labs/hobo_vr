@@ -183,16 +183,16 @@ void GazeMasterDriver::UpdateState(void* data) {
     // pupil dilation tracking
     float pupil_dilation_l =
             (packet->status & EGazeStatus_leftPupilDilationLost)
-            ? 0.5 : packet->pupil_dilation_l;
+            ? 0.5f : packet->pupil_dilation_l;
     float pupil_dilation_r =
             (packet->status & EGazeStatus_rightPupilDilationLost)
-            ? 0.5 : packet->pupil_dilation_r;
+            ? 0.5f : packet->pupil_dilation_r;
 
     // eye close tracking
     float eye_close_l = (packet->status & EGazeStatus_leftNoEyeClose)
-            ? 0.1 : packet->eye_close_l;
+            ? 0.1f : packet->eye_close_l;
     float eye_close_r = (packet->status & EGazeStatus_rightNoEyeClose)
-            ? 0.1 : packet->eye_close_r;
+            ? 0.1f : packet->eye_close_r;
 
     // process smoothing
     if (packet->status & EGazeStatus_lowPupilConfidence) {
