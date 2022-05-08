@@ -238,33 +238,39 @@ struct HoboVR_ManagerResp_t {
 //-----------------------------------------------------------------------------
 
 enum EHoboVR_GazeStatus {
-    EGazeStatus_invalid = 0,
-    EGazeStatus_active = 1, // everything is ok, both eyes are tracking
-    EGazeStatus_calibrating = 2, // device is performing calibration
+    EGazeStatus_invalid =               0,
+    EGazeStatus_active =                        0b00000000001, // everything is ok, both eyes are tracking
+    EGazeStatus_calibrating =                   0b00000000010, // device is performing calibration,
+                                                    // application might receive invalid data while this flag is present
 
-    EGazeStatus_leftEyeLost = 20, // left eye lost tracking
-    EGazeStatus_rightEyeLost = 21, // right eye lost tracking
-    EGazeStatus_bothEyesLost = 22, // both eyes lost tracking
+    EGazeStatus_leftPupilLost =                 0b00000000100, // left eye lost tracking, (0,0) position will be used instead
+    EGazeStatus_rightPupilLost =                0b00000001000, // right eye lost tracking, (0,0) position will be used instead
+    EGazeStatus_lowPupilConfidence =            0b00000010000, // low confidence in pupil tracking, it will be smoothed
 
-    EGazeStatus_lowConfidence = 30, // low confidence in tracking for both eyes
-    EGazeStatus_lowConfidenceLeftEye = 31, // low confidence in left eye tracking
-    EGazeStatus_lowConfidenceRightEye = 32, // low confidence in right eye tracking
+    EGazeStatus_leftPupilDilationLost =         0b00000100000, // left pupil dilation tracking lost, default to relaxed: 0.5
+    EGazeStatus_rightPupilDilationLost =        0b00001000000, // right pupil dilation tracking lost, default to relaxed: 0.5
+    EGazeStatus_lowPupilDilationConfidence =    0b00010000000, // low confidence in pupil dilation tracking, it will be smoothed
+
+    EGazeStatus_leftNoEyeClose =                0b00100000000, // can't track how closed the left eyelid is, default to relaxed open: 0.1
+    EGazeStatus_rightNoEyeClose =               0b01000000000, // can't track how closed the right eyelid is, default to relaxed open: 0.1
+    EGazeStatus_lowEyeCloseConfidence =         0b10000000000, // low confidence in eyelid tracking, it will be smoothed
 
     EGazeStatus_max
 };
 
 struct HoboVR_GazeState_t {
-    uint32_t status; // EHoboVR_GazeStatus enum
+    uint16_t status; // EHoboVR_GazeStatus enum
 
     double age_seconds;
 
-    float gaze_direction_r[2]; // vec 2
-    float gaze_direction_l[2]; // vec 2
+    float pupil_position_r[2]; // vec 2D
+    float pupil_position_l[2]; // vec 2D
 
-    float right_eye_occlusion; // 0 - not occluded, 1 - occluded
-    float left_eye_occlusion; // 0 - not occluded, 1 - occluded
+    float pupil_dilation_r; // 0 to 1
+    float pupil_dilation_l; // 0 to 1
 
-    // maybe more?
+    float eye_close_r; // 0 to 1
+    float eye_close_l; // 0 to 1
 };
 
 #pragma pack(pop)
