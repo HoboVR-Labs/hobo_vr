@@ -9,6 +9,8 @@
 #include "driverlog.h"
 #include "hobovr_device_base.h"
 #include "packets.h"
+#include <utility>
+#include <vector>
 
 // #include <shoom.h>
 
@@ -30,9 +32,17 @@ public:
 
 private:
 
-    vr::VRInputComponentHandle_t m_comp_gaze_l[2];
-    vr::VRInputComponentHandle_t m_comp_gaze_r[2];
-    vr::VRInputComponentHandle_t m_comp_occlusion[2];
+    float smooth1D(float val);
+    std::pair<float, float> smooth2D(float vec[2]);
+
+    std::vector<float> m_smooth_buff_1D;
+    std::vector<std::pair<float, float>> m_smooth_buff_2D;
+    static constexpr int smooth_buff_size_max = 100;
+
+    vr::VRInputComponentHandle_t m_pupil_pos_l[2];
+    vr::VRInputComponentHandle_t m_pupil_pos_r[2];
+    vr::VRInputComponentHandle_t m_eye_closed[2];
+    vr::VRInputComponentHandle_t m_pupil_dilation[2];
 
 };
 
