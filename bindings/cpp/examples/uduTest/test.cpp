@@ -143,6 +143,8 @@ std::mutex m_mutex;
 std::condition_variable m_block_main;
 std::atomic<bool> m_keep_blocking{true};
 
+std::unique_ptr<std::thread> m_recv_thread;
+
 // sockets
 std::unique_ptr<tcp_socket> tracking_sock;
 std::unique_ptr<tcp_socket> manager_sock;
@@ -182,6 +184,10 @@ int start() {
 
 	// res = setup_device_list();
 	// if (res) return res;
+
+	m_recv_thread = std::make_unique<std::thread>(
+		std::bind(&Poser::recv_tracking_responses, this)
+	);
 
 	timer->registerTimer(
 		std::chrono::milliseconds(16),
@@ -398,6 +404,7 @@ bool is_alive() const {
 void stop() {
 	m_keep_blocking.store(false);
 	m_block_main.notify_one();
+	m_recv_thread->join();
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -405,7 +412,6 @@ void stop() {
 ////////////////////////////////////////////////////////////////////
 
 void send_packet() {
-	char buff[256];
 
 	switch(m_mode) {
 	////////////////////////////////////////////////////
@@ -416,22 +422,7 @@ void send_packet() {
 
 		int res = tracking_sock->Send(&pose, sizeof(pose));
 
-		res = tracking_sock->Recv(buff, sizeof(HoboVR_PoserResp_t), lsc::ERecv_nowait);
-		if (res < 0) {
-			if (lerrno != EAGAIN && lerrno != EWOULDBLOCK) {
-				printf("failed to receive driver response: %d\n", lerrno);
-				std::this_thread::sleep_for(
-					std::chrono::milliseconds(5)
-				);
-				stop();
-			}
-		}
-
-		if (res == sizeof(HoboVR_PoserResp_t)) {
-			process_tracking_response((HoboVR_PoserResp_t*)buff);
-		}
-
-		printf("sent %zd\n", sizeof(pose));
+		printf("sent %zd, %d\n", sizeof(pose), res);
 
 
 		break;
@@ -445,22 +436,7 @@ void send_packet() {
 
 		int res = tracking_sock->Send(&pose, sizeof(pose));
 
-		res = tracking_sock->Recv(buff, sizeof(HoboVR_PoserResp_t), lsc::ERecv_nowait);
-		if (res < 0) {
-			if (lerrno != EAGAIN && lerrno != EWOULDBLOCK) {
-				printf("failed to receive driver response: %d\n", lerrno);
-				std::this_thread::sleep_for(
-					std::chrono::milliseconds(5)
-				);
-				stop();
-			}
-		}
-
-		if (res == sizeof(HoboVR_PoserResp_t)) {
-			process_tracking_response((HoboVR_PoserResp_t*)buff);
-		}
-
-		printf("sent %zd\n", sizeof(pose));
+		printf("sent %zd, %d\n", sizeof(pose), res);
 
 		break;
 
@@ -476,6 +452,28 @@ void send_packet() {
 	// printf("packet processing end\n");
 
 	time += 0.016f;
+}
+
+////////////////////////////////////////////////////////////////////
+// receive tracking responses, has to be a different thread
+////////////////////////////////////////////////////////////////////
+
+void recv_tracking_responses() {
+	char buff[256];
+	while (m_keep_blocking.load()) {
+		int res = tracking_sock->Recv(buff, sizeof(HoboVR_PoserResp_t));
+		if (res < 0) {
+			printf("failed to receive driver response: %d\n", lerrno);
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds(5)
+			);
+			stop();
+		}
+
+		if (res == sizeof(HoboVR_PoserResp_t)) {
+			process_tracking_response((HoboVR_PoserResp_t*)buff);
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////
