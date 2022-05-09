@@ -32,6 +32,8 @@ public:
 
 private:
 
+    void updateStatus(const uint16_t status); // status is EHoboVR_GazeStatus enum
+
     float smooth1D(float val);
     std::pair<float, float> smooth2D(float vec[2]);
 

@@ -169,7 +169,10 @@ void GazeMasterDriver::UpdateState(void* data) {
         return;
     }
 
+
     HoboVR_GazeState_t* packet = (HoboVR_GazeState_t*)data;
+
+    updateStatus(packet->status);
 
     // process inputs
     // pupil position tracking
@@ -299,4 +302,32 @@ std::pair<float, float> GazeMasterDriver::smooth2D(float vec[2]) {
     }
 
     return {ret[0] / m_smooth_buff_2D.size(), ret[1] / m_smooth_buff_2D.size()};
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void GazeMasterDriver::updateStatus(const uint16_t status) {
+    vr::DriverPose_t pose;
+    memset(&pose, 0, sizeof(pose));
+
+    if (status & EGazeStatus_active) {
+        pose.deviceIsConnected = true;
+        pose.result = vr::TrackingResult_Running_OK;
+    }
+
+    if (status & EGazeStatus_calibrating)
+        pose.result = vr::TrackingResult_Calibrating_InProgress;
+
+    if (status < EGazeStatus_active) {
+        pose.deviceIsConnected = false;
+        pose.result = vr::TrackingResult_Uninitialized;
+    }
+
+    if (m_unObjectId != vr::k_unTrackedDeviceIndexInvalid) {
+        vr::VRServerDriverHost()->TrackedDevicePoseUpdated(
+            m_unObjectId,
+            pose,
+            sizeof(pose)
+        );
+    }
 }
