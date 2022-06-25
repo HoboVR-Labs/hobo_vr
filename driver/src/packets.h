@@ -2,8 +2,10 @@
 
 // Copyright (C) 2020-2021 Oleg Vorobiov <oleg.vorobiov@hobovrlabs.org>
 
-#ifndef __HOBOVR_PACKETS
-#define __HOBOVR_PACKETS
+#ifndef __HOBO_VR_PACKETS
+#define __HOBO_VR_PACKETS
+
+#include <stdint.h>
 
 #pragma pack(push, 1)
 
@@ -275,4 +277,4 @@ struct HoboVR_GazeState_t {
 
 #pragma pack(pop)
 
-#endif // #ifndef __HOBOVR_PACKETS
+#endif // #ifndef __HOBO_VR_PACKETS

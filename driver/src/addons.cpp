@@ -5,6 +5,9 @@
 #include "addons.h"
 #include "hobovr_defines.h"
 
+#include <filesystem>
+#include "path_helpers.h"
+
 GazeMasterDriver::GazeMasterDriver(
     std::string myserial
 ): HobovrDevice(
@@ -30,131 +33,83 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
         vr::TrackedControllerRole_OptOut
     );
 
-    // gaze directions
-    // left eye
-    auto err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/left/x",
-        m_pupil_pos_l + 0,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedTwoSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 1: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
-    }
-    err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/left/y",
-        m_pupil_pos_l + 1,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedTwoSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 2: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+    // yes this cursed call needs to be done this way
+    std::string driver_path = hobovr::DLWrapper::get_symbol_path(
+        (void*)&GazeMasterDriver::Activate);
+    #pragma GCC diagnostic pop
+
+    if (driver_path.size() == 0) {
+        DriverLog("GazeMasterDriver::Activate() could not resolve driver path, no plugins will be loaded");
+        return vr::VRInitError_None;
     }
 
-    // right eye
-    err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/right/x",
-        m_pupil_pos_r + 0,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedTwoSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 3: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
-    }
-    err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/right/y",
-        m_pupil_pos_r + 1,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedTwoSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 4: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
+
+    std::string driver_folder_path = hobovr::Path_StripFilename(driver_path);
+    // driver_folder_path = hobovr::Path_Join(driver_folder_path, "..", "plugins");
+
+    DriverLog("GazeMasterDriver::Activate() driver path: '%s'", driver_folder_path.c_str());
+
+    std::vector<std::string> plugin_paths;
+
+    for (const auto& i : std::filesystem::directory_iterator(driver_folder_path)) {
+        // DriverLog("\t%s -> %s", i.path().c_str(), hobovr::Path_GetExtension(i.path()).c_str());
+        if (hobovr::Path_GetExtension(i.path()) == "so" && i.path() != driver_path)
+            plugin_paths.push_back(i.path());
     }
 
-    // gaze occlusion
-    // left eye
-    err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/occlusion/left/value",
-        m_eye_closed + 0,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedOneSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 5: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
+    if (plugin_paths.size() == 0) {
+        DriverLog("GazeMasterDriver::Activate() 0 potential plugins found");
+        return vr::VRInitError_None;
     }
 
-    // right eye
-    err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/occlusion/right/value",
-        m_eye_closed + 1,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedOneSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 6: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
+    DriverLog("GazeMasterDriver::Activate() Processing %d potential plugins:",
+        plugin_paths.size());
+
+    for (auto& i : plugin_paths)
+        m_plugin_handles.emplace_back(i, hobovr::DLFlags::LAZY);
+
+    for (auto& i : m_plugin_handles) {
+        if (i.is_alive()) {
+
+            void* symbol_res = i.get_symbol("gazePluginFactory");
+            if (symbol_res != nullptr) {
+                gaze::PluginBase* (*pluginFactory)();
+                pluginFactory = (gaze::PluginBase* (*)())symbol_res;
+
+                gaze::PluginBase* pluginInterface = pluginFactory();
+                if (pluginInterface == nullptr) {
+                    DriverLog("\tFailed to init plugin adapter");
+                    continue;
+                }
+
+                DriverLog("\tAdded plugin adapter: '%s'",
+                    pluginInterface->GetNameAndVersion().c_str());
+                m_plugin_adapters.emplace_back(pluginInterface);
+
+            } else {
+                DriverLog("\tSkipping plugin, could not get factory symbol: '%s'",
+                    i.get_last_error().c_str());
+            }
+        } else {
+            DriverLog("\tFailed to init plugin: '%s'", i.get_last_error().c_str());
+        }
     }
 
-    // pupil dilation
-    // left eye
-    err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/dilation/left/value",
-        m_pupil_dilation + 0,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedOneSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 7: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
-    }
+    DriverLog("GazeMasterDriver::Activate() Activating plugins:");
 
-    // right eye
-    err = vr::VRDriverInput()->CreateScalarComponent(
-        m_ulPropertyContainer,
-        "/input/gaze/dilation/right/value",
-        m_pupil_dilation + 1,
-        vr::VRScalarType_Absolute,
-        vr::VRScalarUnits_NormalizedOneSided
-    );
-    if (err) {
-        DriverLog(
-            "gaze_master: failed to create scalar component 7: errno=%d",
-            (int)err
-        );
-        return vr::VRInitError_Unknown;
+    for (auto it = m_plugin_adapters.begin(); it != m_plugin_adapters.end();) {
+        std::string name = (*it)->GetNameAndVersion();
+        bool res = (*it)->Activate();
+        if (res) {
+            DriverLog("\t%s activeted", name.c_str());
+            it++;
+        } else {
+            DriverLog("\t%s failed to activete: %s",
+                name.c_str(), (*it)->GetLastError().c_str());
+            it = m_plugin_adapters.erase(it);
+        }
     }
 
     return vr::VRInitError_None;
@@ -217,56 +172,19 @@ void GazeMasterDriver::UpdateState(void* data) {
         eye_close_r = smooth1D(eye_close_r);
     }
 
-
-    auto ivrinput_cache = vr::VRDriverInput();
-
-    // left eye dir
-    ivrinput_cache->UpdateScalarComponent(
-        m_pupil_pos_l[0],
-        pupil_position_l[0],
-        packet->age_seconds
-    );
-    ivrinput_cache->UpdateScalarComponent(
-        m_pupil_pos_l[1],
-        pupil_position_l[1],
-        packet->age_seconds
-    );
-
-    // right eye dir
-    ivrinput_cache->UpdateScalarComponent(
-        m_pupil_pos_r[0],
-        pupil_position_r[0],
-        packet->age_seconds
-    );
-    ivrinput_cache->UpdateScalarComponent(
-        m_pupil_pos_r[1],
-        pupil_position_r[1],
-        packet->age_seconds
-    );
-
-    // both eye occlusion
-    ivrinput_cache->UpdateScalarComponent(
-        m_eye_closed[0],
-        eye_close_l,
-        packet->age_seconds
-    );
-    ivrinput_cache->UpdateScalarComponent(
-        m_eye_closed[1],
-        eye_close_r,
-        packet->age_seconds
-    );
-
-    // both eye dilation
-    ivrinput_cache->UpdateScalarComponent(
-        m_pupil_dilation[0],
-        pupil_dilation_l,
-        packet->age_seconds
-    );
-    ivrinput_cache->UpdateScalarComponent(
-        m_pupil_dilation[1],
+    HoboVR_GazeState_t res = {
+        packet->status,
+        packet->age_seconds,
+        pupil_position_r[0], pupil_position_r[1],
+        pupil_position_l[0], pupil_position_l[1],
         pupil_dilation_r,
-        packet->age_seconds
-    );
+        pupil_dilation_l,
+        eye_close_r,
+        eye_close_l
+    };
+
+    for (auto& i : m_plugin_adapters)
+        i->ProcessData(res);
 
 }
 

@@ -16,6 +16,10 @@
 
 // #include <thread>
 
+#include "gaze_master_plugin_interface.h"
+
+#include "plugin_helper.h"
+
 //-----------------------------------------------------------------------------
 // Purpose: eye tracking addon device, code name: Gaze Master
 //-----------------------------------------------------------------------------
@@ -23,11 +27,19 @@
 class GazeMasterDriver: public hobovr::HobovrDevice<false, false> {
 public:
     GazeMasterDriver(std::string myserial);
+    virtual ~GazeMasterDriver() = default;
 
     virtual vr::EVRInitError Activate(vr::TrackedDeviceIndex_t unObjectId) final;
 
     virtual void UpdateState(void* data) final;
     inline virtual size_t GetPacketSize() final {return sizeof(HoboVR_GazeState_t);}
+
+    inline virtual void Deactivate() override final {
+        m_plugin_adapters.clear();
+        m_plugin_handles.clear();
+
+        HobovrDevice::Deactivate();
+    }
 
 
 private:
@@ -41,11 +53,8 @@ private:
     std::vector<std::pair<float, float>> m_smooth_buff_2D;
     static constexpr int smooth_buff_size_max = 100;
 
-    vr::VRInputComponentHandle_t m_pupil_pos_l[2];
-    vr::VRInputComponentHandle_t m_pupil_pos_r[2];
-    vr::VRInputComponentHandle_t m_eye_closed[2];
-    vr::VRInputComponentHandle_t m_pupil_dilation[2];
-
+    std::vector<std::unique_ptr<gaze::PluginBase>> m_plugin_adapters;
+    std::vector<hobovr::DLWrapper> m_plugin_handles;
 };
 
 

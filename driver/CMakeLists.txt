@@ -112,12 +112,15 @@ set(SHROOM_INCLUDE_DIR "shroom/include/")
 add_subdirectory("lazy-sockets")
 set(LAZY_SOCKETS_INCLUDE_DIR "lazy-sockets/src/")
 
+# example gaze master plugin
+add_subdirectory("gaze_master_plugins")
 
 # actual build instructions
 include_directories(
   ${OPENVR_INCLUDE_DIR}
   ${SHROOM_INCLUDE_DIR}
   ${LAZY_SOCKETS_INCLUDE_DIR}
+  "src/plugins/"
   "src/ref/"
   "src/"
 )
@@ -125,10 +128,11 @@ include_directories(
 file(GLOB driver_hobovr_src
   "src/*.cpp"
   "src/*.h"
-  # "src/ref/*.cpp"
+  "src/plugins/gaze_master_plugin_interface.h"
+  "src/plugins/plugin_helper.h"
+  "src/plugins/plugin_helper_${PLATFORM_NAME}.cpp"
   "src/ref/hobovr*.cpp"
   "src/ref/util.cpp"
-  "src/ref/receiver_${PLATFORM_NAME}.cpp"
   "src/ref/*.h"
 ) # grab all source files
 
@@ -136,12 +140,11 @@ add_library(${TARGET_NAME} SHARED
   ${driver_hobovr_src}
 )
 
-add_definitions(-DDRIVER_HOBOVR_EXPORTS)
-
 target_link_libraries(${TARGET_NAME}
   "${OPENVR_LIBRARIES}"
   shoom
   lazy_sockets
+  -ldl
   ${CMAKE_DL_LIBS}
 )
 

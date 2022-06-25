@@ -198,6 +198,8 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
+	if (mbUduEvent.load())
+		return; // sync in progress, do nothing
 
 	if (len != muInternalBufferSize) {
 		// tell the poser it fucked up
@@ -226,9 +228,6 @@ void CServerDriver_hobovr::OnPacket(void* buff, size_t len) {
 		return; // do nothing on bad messages
 	}
 
-	if (mbUduEvent.load())
-		return; // sync in progress, do nothing
-
 
 	size_t buff_offset = 0;
 
@@ -252,12 +251,6 @@ void CServerDriver_hobovr::Cleanup() {
 	// set slow/fast thread alive signals to exit
 	mpTimer.reset();
 
-	// release ownership to signal the receiver thread to finish
-	mlSocket.reset();
-
-	// call stop to make sure the receiver thread has joined
-	mpReceiver->Stop();
-
 	// send a "driver exit" notification to the poser
 	HoboVR_RespReserved_t fake_data = {};
 	HoboVR_PoserResp_t resp{
@@ -266,6 +259,12 @@ void CServerDriver_hobovr::Cleanup() {
 		g_EndTag
 	};
 	mlSocket->Send(&resp, sizeof(resp));
+
+	// release ownership to signal the receiver thread to finish
+	mlSocket.reset();
+
+	// call stop to make sure the receiver thread has joined
+	mpReceiver->Stop();
 
 	mvDevices.clear();
 	mvOffDevices.clear();
