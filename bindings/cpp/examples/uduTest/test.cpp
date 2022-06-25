@@ -442,6 +442,40 @@ void send_packet() {
 
 	} // case EHMD_AND_TRKRS
 
+	case EHMD_AND_GAZE_MASTER: {
+		hmd_and_gaze_master_t pose;
+		pose.hmd.position[0] = sin(time);
+		pose.hmd.orientation[0] = 1;
+
+		int res = tracking_sock->Send(&pose, sizeof(pose));
+
+		printf("sent %zd, %d\n", sizeof(pose), res);
+
+		break;
+
+	} // case EHMD_AND_GAZE_MASTER
+
+	case EGAZE_MASTER: {
+		gaze_master_t pose;
+
+		pose.gaze_master.status = EGazeStatus_active;
+
+		pose.gaze_master.age_seconds = 0.1;
+
+		pose.gaze_master.pupil_position_r[0] = sin(time);
+		pose.gaze_master.pupil_position_r[1] = cos(time);
+
+		pose.gaze_master.pupil_position_l[0] = sin(-time);
+		pose.gaze_master.pupil_position_l[1] = cos(-time);
+
+		int res = tracking_sock->Send(&pose, sizeof(pose));
+
+		printf("sent %zd, %d\n", sizeof(pose), res);
+
+		break;
+
+	} // case EGAZE_MASTER
+
 	////////////////////////////////////////////////////
 
 	default:
