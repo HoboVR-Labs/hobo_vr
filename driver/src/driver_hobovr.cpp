@@ -343,7 +343,7 @@ void CServerDriver_hobovr::UpdateServerDeviceList() {
 			continue;
 		}
 
-		DriverLog("%s: %p == %p => %d", __FUNCTION__, res, mvOffDevices.end(), res != mvOffDevices.end());
+		// DriverLog("%s: %p == %p => %d", __FUNCTION__, res, mvOffDevices.end(), res != mvOffDevices.end());
 		DriverLog("%s: '%s' not found...", __FUNCTION__, target_serial.c_str());
 
 		// couldn't find an old device, time to make a new one
