@@ -33,10 +33,22 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
         vr::TrackedControllerRole_OptOut
     );
 
-    auto fptr = &GazeMasterDriver::Activate;
     // yes this cursed call needs to be done this way
+
+    #if defined(WIN)
+    auto fptr = &GazeMasterDriver::Activate;
     std::string driver_path = hobovr::DLWrapper::get_symbol_path(
         reinterpret_cast<void*&>(fptr));
+
+    #elif defined(LINUX)
+
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+    std::string driver_path = hobovr::DLWrapper::get_symbol_path(
+        (void*)&GazeMasterDriver::Activate);
+    #pragma GCC diagnostic pop
+
+    #endif
 
     if (driver_path.size() == 0) {
         DriverLog("GazeMasterDriver::Activate() could not resolve driver path, no plugins will be loaded");
@@ -70,6 +82,7 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
     for (auto& i : plugin_paths)
         m_plugin_handles.emplace_back(i);
 
+    std::vector<std::unique_ptr<gaze::PluginBase>> plugin_adapters_candidates;
     for (auto& i : m_plugin_handles) {
         if (i.is_alive()) {
 
@@ -86,7 +99,7 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
 
                 DriverLog("\tAdded plugin adapter: '%s'",
                     pluginInterface->GetNameAndVersion().c_str());
-                m_plugin_adapters.emplace_back(pluginInterface);
+                plugin_adapters_candidates.emplace_back(pluginInterface);
 
             } else {
                 DriverLog("\tSkipping plugin, could not get factory symbol: '%s'",
@@ -99,16 +112,12 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
 
     DriverLog("GazeMasterDriver::Activate() Activating plugins:");
 
-    for (auto it = m_plugin_adapters.begin(); it != m_plugin_adapters.end();) {
-        std::string name = (*it)->GetNameAndVersion();
-        bool plugin_res = (*it)->Activate();
+    for (auto& i : plugin_adapters_candidates) {
+        std::string name = i->GetNameAndVersion();
+        bool plugin_res = i->Activate();
         if (plugin_res) {
             DriverLog("\t%s activated", name.c_str());
-            it++;
-        } else {
-            DriverLog("\t%s failed to activate: %s",
-                name.c_str(), (*it)->GetLastError().c_str());
-            it = m_plugin_adapters.erase(it);
+            m_plugin_adapters.push_back(std::move(i));
         }
     }
 

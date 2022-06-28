@@ -263,7 +263,7 @@ vr::EVRInitError HobovrTrackingRef_SettManager::Activate(
 
     int res = m_pSocketComm->Connect("127.0.0.1", 6969);
     if (res){
-        DriverLog("tracking reference: failed to connect: errno=%d\n", lerrno);
+        DriverLog("tracking reference: failed to connect: errno=%s\n", lsc::getString(lerrno).c_str());
         return vr::VRInitError_IPC_ServerInitFailed;
     }
 
