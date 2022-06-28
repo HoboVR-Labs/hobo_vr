@@ -33,17 +33,10 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
         vr::TrackedControllerRole_OptOut
     );
 
-    #if defined(LINUX)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpedantic"
-    #endif
     auto fptr = &GazeMasterDriver::Activate;
     // yes this cursed call needs to be done this way
     std::string driver_path = hobovr::DLWrapper::get_symbol_path(
         reinterpret_cast<void*&>(fptr));
-    #if defined(LINUX)
-    #pragma GCC diagnostic pop
-    #endif
 
     if (driver_path.size() == 0) {
         DriverLog("GazeMasterDriver::Activate() could not resolve driver path, no plugins will be loaded");
@@ -58,9 +51,11 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
 
     std::vector<std::string> plugin_paths;
 
+    std::string dl_exention = hobovr::Path_GetExtension(driver_path);
+
     for (const auto& i : std::filesystem::directory_iterator(driver_folder_path)) {
         // DriverLog("\t%s -> %s", i.path().c_str(), hobovr::Path_GetExtension(i.path()).c_str());
-        if (hobovr::Path_GetExtension(i.path().u8string()) == "so" && i.path().u8string() != driver_path)
+        if (hobovr::Path_GetExtension(i.path().u8string()) == dl_exention && i.path().u8string() != driver_path)
             plugin_paths.push_back(i.path().u8string());
     }
 
