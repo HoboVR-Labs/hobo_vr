@@ -118,7 +118,7 @@ EVRInitError CServerDriver_hobovr::Init(vr::IVRDriverContext *pDriverContext) {
 
 	int res = mlSocket->Connect("127.0.0.1", 6969);
 	if (res) {
-		DriverLog("driver: failed to connect: errno=%s", lsc::getString(lerrno));
+		DriverLog("driver: failed to connect: errno=%s", lsc::getString(lerrno).c_str());
 		return VRInitError_IPC_ServerInitFailed;
 	}
 
