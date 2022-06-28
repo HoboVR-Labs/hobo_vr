@@ -9,13 +9,9 @@
 
 namespace hobovr {
 
-enum DLFlags {
-	LAZY = 1
-};
-
 class DLWrapper {
 public:
-	DLWrapper(const std::string& fname, int flags);
+	DLWrapper(const std::string& fname, int flags=0);
 	~DLWrapper();
 
 	std::string get_last_error();

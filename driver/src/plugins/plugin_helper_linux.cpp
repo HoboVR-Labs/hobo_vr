@@ -10,7 +10,7 @@ namespace hobovr {
 
 
 DLWrapper::DLWrapper(const std::string& fname, int flags): m_flags(flags) {
-	m_handle = dlopen(fname.c_str(), m_flags);
+	m_handle = dlopen(fname.c_str(), RTLD_LAZY);
 }
 
 DLWrapper::~DLWrapper() {

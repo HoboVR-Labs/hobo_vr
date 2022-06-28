@@ -54,7 +54,7 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
     std::string dl_exention = hobovr::Path_GetExtension(driver_path);
 
     for (const auto& i : std::filesystem::directory_iterator(driver_folder_path)) {
-        // DriverLog("\t%s -> %s", i.path().c_str(), hobovr::Path_GetExtension(i.path()).c_str());
+        //DriverLog("\t%s -> %s", i.path().u8string().c_str(), hobovr::Path_GetExtension(i.path().u8string()).c_str());
         if (hobovr::Path_GetExtension(i.path().u8string()) == dl_exention && i.path().u8string() != driver_path)
             plugin_paths.push_back(i.path().u8string());
     }
@@ -68,7 +68,7 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
         plugin_paths.size());
 
     for (auto& i : plugin_paths)
-        m_plugin_handles.emplace_back(i, hobovr::DLFlags::LAZY);
+        m_plugin_handles.emplace_back(i);
 
     for (auto& i : m_plugin_handles) {
         if (i.is_alive()) {
@@ -103,10 +103,10 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
         std::string name = (*it)->GetNameAndVersion();
         bool plugin_res = (*it)->Activate();
         if (plugin_res) {
-            DriverLog("\t%s activeted", name.c_str());
+            DriverLog("\t%s activated", name.c_str());
             it++;
         } else {
-            DriverLog("\t%s failed to activete: %s",
+            DriverLog("\t%s failed to activate: %s",
                 name.c_str(), (*it)->GetLastError().c_str());
             it = m_plugin_adapters.erase(it);
         }

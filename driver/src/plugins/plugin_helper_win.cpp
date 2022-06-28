@@ -11,7 +11,7 @@ namespace hobovr {
 
 
 DLWrapper::DLWrapper(const std::string& fname, int flags): m_flags(flags) {
-	m_handle = LoadLibraryExA(fname.c_str(), NULL, m_flags);
+	m_handle = LoadLibraryA(fname.c_str());
 }
 
 DLWrapper::~DLWrapper() {

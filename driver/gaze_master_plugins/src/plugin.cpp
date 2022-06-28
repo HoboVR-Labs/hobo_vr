@@ -18,9 +18,14 @@ public:
 	virtual ~GazeLogger() = default;
 
 	virtual bool Activate() {
+		#ifdef WIN
+		m_file = std::move(std::ofstream(".\\GazeLogger_out.log", std::ios::binary));
+		#else
 		m_file = std::move(std::ofstream("/tmp/GazeLogger_out.log", std::ios::binary));
+		#endif
+		
 		h = 0;
-		return !m_file.bad();
+		return !m_file.bad() && m_file.is_open();
 	}
 
 	virtual void ProcessData(const HoboVR_GazeState_t& data) {
