@@ -31,7 +31,7 @@ if (MSVC)
     add_compile_options(/W4 /WX)
 else()
     # all warnings as errors
-    add_compile_options(-Wall -Wextra -pedantic -Werror)
+    add_compile_options(-Wall -Wextra -pedantic -Werror -Wno-missing-braces)
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
@@ -42,7 +42,7 @@ option(INSTALL_X86_DRIVER "Overrides the platform architecture on install, will 
 
 # Check if 32 or 64 bit system or a 32 bit override.
 set(SIZEOF_VOIDP ${CMAKE_SIZEOF_VOID_P})
-if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT INSTALL_32BIT)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT INSTALL_X86_DRIVER)
   set(HOBOVR_PROCESSOR_ARCH "64")
 else()
   set(HOBOVR_PROCESSOR_ARCH "32")
@@ -54,7 +54,7 @@ message(STATUS "Compilation set for ${HOBOVR_PROCESSOR_ARCH}bit architectures.")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(PLATFORM_NAME "linux")
   set(PLATFORM_SCRIPT_EXT "sh")
-  add_definitions(-DLINUX -DPOSIX)
+  add_definitions(-DLINUX)
 
   if(HOBOVR_PROCESSOR_ARCH MATCHES "64")
       add_definitions(-DLINUX64)
@@ -65,7 +65,7 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(PLATFORM_NAME "win")
   set(PLATFORM_SCRIPT_EXT "bat")
-  add_definitions(-D_WIN32)
+  add_definitions(-DWIN)
 
   # Binaries path for thirdparties are not generics so we try to guess their suffixes.
   set(WINDOWS_PATH_SUFFIXES win${HOBOVR_PROCESSOR_ARCH} Win${HOBOVR_PROCESSOR_ARCH} x${HOBOVR_PROCESSOR_ARCH})
@@ -104,16 +104,35 @@ set(OPENVR_INCLUDE_DIR ${hobo_vr_SOURCE_DIR}/openvr/headers)
 message(NOTICE "openvr libs: ${OPENVR_LIBRARIES}")
 message(NOTICE "openvr headers: ${OPENVR_INCLUDE_DIR}")
 
+# shroom dep
+add_subdirectory(shroom)
+set(SHROOM_INCLUDE_DIR "shroom/include/")
+
+# lazy-sockets dep
+add_subdirectory("lazy-sockets")
+set(LAZY_SOCKETS_INCLUDE_DIR "lazy-sockets/src/")
+
+# example gaze master plugin
+add_subdirectory("gaze_master_plugins")
+
 # actual build instructions
 include_directories(
   ${OPENVR_INCLUDE_DIR}
+  ${SHROOM_INCLUDE_DIR}
+  ${LAZY_SOCKETS_INCLUDE_DIR}
+  "src/plugins/"
   "src/ref/"
+  "src/"
 )
 
 file(GLOB driver_hobovr_src
   "src/*.cpp"
   "src/*.h"
-  "src/ref/*.cpp"
+  "src/plugins/gaze_master_plugin_interface.h"
+  "src/plugins/plugin_helper.h"
+  "src/plugins/plugin_helper_${PLATFORM_NAME}.cpp"
+  "src/ref/hobovr*.cpp"
+  "src/ref/util.cpp"
   "src/ref/*.h"
 ) # grab all source files
 
@@ -121,10 +140,11 @@ add_library(${TARGET_NAME} SHARED
   ${driver_hobovr_src}
 )
 
-add_definitions(-DDRIVER_HOBOVR_EXPORTS)
-
 target_link_libraries(${TARGET_NAME}
   "${OPENVR_LIBRARIES}"
+  shoom
+  lazy_sockets
+  -ldl
   ${CMAKE_DL_LIBS}
 )
 

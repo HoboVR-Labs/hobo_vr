@@ -7,6 +7,16 @@
 #ifndef HOBOVR_COMPONENTS_H
 #define HOBOVR_COMPONENTS_H
 
+#include <openvr_driver.h>
+#include "driverlog.h"
+
+#include <cmath>
+#include <memory>
+
+#define _stricmp strcasecmp
+
+#include "hobovr_defines.h"
+
 namespace hobovr {
   enum ELensMathType {
     Mt_Invalid = 0,
@@ -177,9 +187,9 @@ namespace hobovr {
       }
     }
 
-    virtual DistortionCoordinates_t ComputeDistortion(vr::EVREye eEye, float fU,
+    virtual vr::DistortionCoordinates_t ComputeDistortion(vr::EVREye eEye, float fU,
                                                       float fV) {
-      DistortionCoordinates_t coordinates;
+      vr::DistortionCoordinates_t coordinates;
 
       (void)eEye; // because its not used and i cant remove this argument
 
