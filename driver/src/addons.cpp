@@ -114,7 +114,13 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
 
     for (auto& i : plugin_adapters_candidates) {
         std::string name = i->GetNameAndVersion();
-        bool plugin_res = i->Activate();
+        bool plugin_res = i->Activate(
+            {
+                gaze::g_plugin_interface_version_major,
+                gaze::g_plugin_interface_version_minor,
+                gaze::g_plugin_interface_version_hotfix
+            }
+        );
         if (plugin_res) {
             DriverLog("\t%s activated", name.c_str());
             m_plugin_adapters.push_back(std::move(i));

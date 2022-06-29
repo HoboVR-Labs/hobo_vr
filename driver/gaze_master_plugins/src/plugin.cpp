@@ -17,7 +17,15 @@ public:
 	GazeLogger() = default;
 	virtual ~GazeLogger() = default;
 
-	virtual bool Activate() {
+	virtual bool Activate(const gaze::PluginVersion_t version) {
+		if (version.major != gaze::g_plugin_interface_version_major &&
+			version.minor != gaze::g_plugin_interface_version_minor &&
+			version.hotfix != gaze::g_plugin_interface_version_hotfix)
+		{
+			m_error_msg = "plugin interface version miss match";
+			return false; // interface version incompatibility is a no no
+		}
+
 		#ifdef WIN
 		m_file = std::move(std::ofstream(".\\GazeLogger_out.log", std::ios::binary));
 		#else
@@ -47,12 +55,13 @@ public:
 	}
 
 	virtual std::string GetLastError() {
-		return "failed to open file";
+		return m_error_msg;
 	}
 
 private:
 	std::ofstream m_file;
 	int h = 0;
+	std::string m_error_msg = "failed to open file";
 };
 
 PLUGIN_DLL_EXPORT gaze::PluginBase* gazePluginFactory() {
