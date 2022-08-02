@@ -69,10 +69,6 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
   # Binaries path for thirdparties are not generics so we try to guess their suffixes.
   set(WINDOWS_PATH_SUFFIXES win${HOBOVR_PROCESSOR_ARCH} Win${HOBOVR_PROCESSOR_ARCH} x${HOBOVR_PROCESSOR_ARCH})
-
-  if(${HOBOVR_PROCESSOR_ARCH} MATCHES 64)
-    message(WARNING "SDL x64 runtime binaries not provided on Windows.")
-  endif()
 endif()
 
 # set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${hobo_vr_SOURCE_DIR}/../hobovr/bin/${PLATFORM_NAME}${HOBOVR_PROCESSOR_ARCH})
@@ -115,9 +111,13 @@ set(LAZY_SOCKETS_INCLUDE_DIR "lazy-sockets/src/")
 # example gaze master plugin
 add_subdirectory("gaze_master_plugins")
 
+set(Boost_USE_STATIC_LIBS ON)
+find_package(Boost REQUIRED)
+
 # actual build instructions
 include_directories(
   ${OPENVR_INCLUDE_DIR}
+  ${Boost_INCLUDE_DIR}
   ${SHROOM_INCLUDE_DIR}
   ${LAZY_SOCKETS_INCLUDE_DIR}
   "src/plugins/"
@@ -129,8 +129,6 @@ file(GLOB driver_hobovr_src
   "src/*.cpp"
   "src/*.h"
   "src/plugins/gaze_master_plugin_interface.h"
-  "src/plugins/plugin_helper.h"
-  "src/plugins/plugin_helper_${PLATFORM_NAME}.cpp"
   "src/ref/hobovr*.cpp"
   "src/ref/util.cpp"
   "src/ref/*.h"
@@ -144,7 +142,8 @@ target_link_libraries(${TARGET_NAME}
   "${OPENVR_LIBRARIES}"
   shoom
   lazy_sockets
-  -ldl
+  -lstdc++fs
+  ${Boost_DLL_LIBRARY}
   ${CMAKE_DL_LIBS}
 )
 

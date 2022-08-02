@@ -4,9 +4,11 @@
 
 #include "addons.h"
 #include "hobovr_defines.h"
-
-#include <filesystem>
 #include "path_helpers.h"
+
+std::string get_self_path() {
+    return boost::dll::symbol_location_ptr(get_self_path).string();
+}
 
 GazeMasterDriver::GazeMasterDriver(
     std::string myserial
@@ -33,22 +35,7 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
         vr::TrackedControllerRole_OptOut
     );
 
-    // yes this cursed call needs to be done this way
-
-    #if defined(WIN)
-    auto fptr = &GazeMasterDriver::Activate;
-    std::string driver_path = hobovr::DLWrapper::get_symbol_path(
-        reinterpret_cast<void*&>(fptr));
-
-    #elif defined(LINUX)
-
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpedantic"
-    std::string driver_path = hobovr::DLWrapper::get_symbol_path(
-        (void*)&GazeMasterDriver::Activate);
-    #pragma GCC diagnostic pop
-
-    #endif
+    std::string driver_path = get_self_path();
 
     if (driver_path.size() == 0) {
         DriverLog("GazeMasterDriver::Activate() could not resolve driver path, no plugins will be loaded");
@@ -66,9 +53,9 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
     std::string dl_exention = hobovr::Path_GetExtension(driver_path);
 
     for (const auto& i : std::filesystem::directory_iterator(driver_folder_path)) {
-        //DriverLog("\t%s -> %s", i.path().u8string().c_str(), hobovr::Path_GetExtension(i.path().u8string()).c_str());
-        if (hobovr::Path_GetExtension(i.path().u8string()) == dl_exention && i.path().u8string() != driver_path)
-            plugin_paths.push_back(i.path().u8string());
+        //DriverLog("\t%s -> %s", i.path().string().c_str(), hobovr::Path_GetExtension(i.path().string()).c_str());
+        if (hobovr::Path_GetExtension(i.path().string()) == dl_exention && i.path().string() != driver_path)
+            plugin_paths.push_back(i.path().string());
     }
 
     if (plugin_paths.size() == 0) {
@@ -83,31 +70,43 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
         m_plugin_handles.emplace_back(i);
 
     std::vector<std::unique_ptr<gaze::PluginBase>> plugin_adapters_candidates;
+    std::string factory_symbol_name = "gazePluginFactory";
+
+    int h = 0;
+
     for (auto& i : m_plugin_handles) {
-        if (i.is_alive()) {
-
-            void* symbol_res = i.get_symbol("gazePluginFactory");
-            if (symbol_res != nullptr) {
-                gaze::PluginBase* (*pluginFactory)();
-                pluginFactory = (gaze::PluginBase* (*)())symbol_res;
-
-                gaze::PluginBase* pluginInterface = pluginFactory();
-                if (pluginInterface == nullptr) {
-                    DriverLog("\tFailed to init plugin adapter");
-                    continue;
-                }
-
-                DriverLog("\tAdded plugin adapter: '%s'",
-                    pluginInterface->GetNameAndVersion().c_str());
-                plugin_adapters_candidates.emplace_back(pluginInterface);
-
-            } else {
-                DriverLog("\tSkipping plugin, could not get factory symbol: '%s'",
-                    i.get_last_error().c_str());
-            }
-        } else {
-            DriverLog("\tFailed to init plugin: '%s'", i.get_last_error().c_str());
+        if (!i.is_loaded()) {
+            DriverLog("\t%d failed to load plugin, skipping...", h);
+            continue;
         }
+
+        if (!i.has(factory_symbol_name)) {
+            DriverLog("\t%d does not contain factory function, skipping...", h);
+            continue;
+        }
+
+        std::function<gaze::PluginBase*()> factory_func;
+
+        factory_func = i.get<gaze::PluginBase*()>(factory_symbol_name);
+
+        if (factory_func == nullptr) {
+            DriverLog("\t%d failed to obtain factory function ptr", h);
+            continue;
+        }
+
+        std::unique_ptr<gaze::PluginBase> plugin(factory_func());
+
+        if (!plugin) {
+            DriverLog("\t%d failed to construct plugin", h);
+            continue;
+        }
+
+        DriverLog("\tcreated plugin %d at %p",
+            h, plugin.get());
+
+        plugin_adapters_candidates.push_back(std::move(plugin));
+
+        h++;
     }
 
     DriverLog("GazeMasterDriver::Activate() Activating plugins:");
@@ -122,8 +121,11 @@ vr::EVRInitError GazeMasterDriver::Activate(vr::TrackedDeviceIndex_t unObjectId)
             }
         );
         if (plugin_res) {
-            DriverLog("\t%s activated", name.c_str());
+            DriverLog("\t'%s' activated", name.c_str());
             m_plugin_adapters.push_back(std::move(i));
+        } else {
+            DriverLog("\t'%s' failed to activate, reason: '%s'",
+                name.c_str(), i->GetLastError().c_str());
         }
     }
 

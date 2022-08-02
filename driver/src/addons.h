@@ -12,13 +12,18 @@
 #include <utility>
 #include <vector>
 
+#include <filesystem>
+#ifdef WIN
+    #include <iostream>
+    #define _snprintf _snprintf_s
+#endif
+#include <boost/dll.hpp>
+
 // #include <shoom.h>
 
 // #include <thread>
 
 #include "gaze_master_plugin_interface.h"
-
-#include "plugin_helper.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: eye tracking addon device, code name: Gaze Master
@@ -54,7 +59,7 @@ private:
     static constexpr int smooth_buff_size_max = 100;
 
     std::vector<std::unique_ptr<gaze::PluginBase>> m_plugin_adapters;
-    std::vector<hobovr::DLWrapper> m_plugin_handles;
+    std::vector<boost::dll::shared_library> m_plugin_handles;
 };
 
 

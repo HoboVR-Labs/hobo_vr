@@ -1,16 +1,14 @@
-#if defined(LINUX)
-	#define PLUGIN_DLL_EXPORT extern "C" __attribute__((visibility("default")))
-	#define PLUGIN_DLL_IMPORT extern "C"
-#elif defined(WIN)
-	#define PLUGIN_DLL_EXPORT extern "C" __declspec(dllexport)
-	#define PLUGIN_DLL_IMPORT extern "C" __declspec(dllimport)
-#else
-	#error "Unsupported Platform."
+#include <boost/dll.hpp>
+
+#if !defined(WIN) && !defined(LINUX)
+#error "incorrect setup"
 #endif
 
 #include "gaze_master_plugin_interface.h"
 
 #include <fstream>
+
+namespace glog {
 
 class GazeLogger: public gaze::PluginBase {
 public:
@@ -58,12 +56,21 @@ public:
 		return m_error_msg;
 	}
 
+
 private:
 	std::ofstream m_file;
 	int h = 0;
 	std::string m_error_msg = "failed to open file";
 };
 
-PLUGIN_DLL_EXPORT gaze::PluginBase* gazePluginFactory() {
-	return new GazeLogger;
+gaze::PluginBase* factory() {
+	auto m_file = std::ofstream("/tmp/GazeLogger_out.alive.log", std::ios::binary);
+	m_file << "yes";
+	return reinterpret_cast<gaze::PluginBase*>(new GazeLogger);
+}
+
+} // namespace glog
+
+extern "C" BOOST_SYMBOL_EXPORT gaze::PluginBase* gazePluginFactory() {
+	return glog::factory();
 }
