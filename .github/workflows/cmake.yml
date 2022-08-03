@@ -28,6 +28,26 @@ jobs:
     - name: Clone submodules
       run: git submodule init && git submodule update
 
+    - name: Python Setup
+      uses: actions/setup-python@v1
+      with:
+          python-version: '3.x'
+    - uses: ./.github/actions/setup-conan
+
+    - name: Downloading Windows Dependencies
+      if: runner.os == 'Windows'
+      run: |
+        ${boostroot} = "${env:GITHUB_WORKSPACE}\boost_install"
+        conan install boost/1.72.0@ -o boost:header_only=True -g deploy --install-folder ${boostroot}
+        dir ${boostroot}
+        dir ${boostroot}\boost
+        echo "BOOST_ROOT=${boostroot}\boost" >> ${env:GITHUB_ENV}
+
+    - name: Downloading Linux Dependencies
+      if: runner.os != 'Windows'
+      run: |
+        sudo apt-get install -y libboost-dev
+
     # Configure CMake projects
     - name: Configure Driver CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -67,3 +87,4 @@ jobs:
         name: test-poser-${{ inputs.platform }}
         # could have different extensions depending on the platform
         path: bindings/cpp/examples/uduTest/output/test_poser
+
