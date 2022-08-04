@@ -14,8 +14,21 @@
 
 #include <filesystem>
 #ifdef WIN
-    #include <iostream>
-    #define _snprintf _snprintf_s
+#include <cstring>
+    // #define _snprintf _snprintf_s
+    // #define snprintf _snprintf
+    // #undef snprintf
+    namespace std {
+        inline int snprintf (char *s, size_t maxlen, const char *format, ...)
+        {
+          va_list arg;
+          int done;
+          va_start (arg, format);
+          done = _snprintf_s(s, maxlen, maxlen, format, arg, 0);
+          va_end (arg);
+          return done;
+        }
+    }
 #endif
 #include <boost/dll.hpp>
 

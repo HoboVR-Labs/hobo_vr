@@ -147,6 +147,8 @@ target_link_libraries(${TARGET_NAME}
   ${CMAKE_DL_LIBS}
 )
 
+message(NOTICE "boost_root: ${BOOST_ROOT}|")
+
 install(
   TARGETS
     ${TARGET_NAME}

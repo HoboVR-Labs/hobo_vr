@@ -17,7 +17,7 @@ target_include_directories(gaze_logger PRIVATE
 )
 
 target_link_libraries(gaze_logger PRIVATE
-	${Boost_DLL_LIBRARy}
+	${Boost_DLL_LIBRARY}
 	${CMAKE_DL_LIBS}
 )
 
