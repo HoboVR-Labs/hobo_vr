@@ -6,6 +6,6 @@ hobo_dir=""
 true_hobo_dir="$(cd "$(dirname "$hobo_dir")"; pwd)/$(basename "$hobo_dir")"
 
 
-LD_LIBRARY_PATH="${vr_reg_loc_dir}" $vr_reg_loc adddriver $true_hobo_dir
+LD_LIBRARY_PATH="${vr_reg_loc_dir}" $vr_reg_loc adddriver "${true_hobo_dir}"
 
 LD_LIBRARY_PATH="${vr_reg_loc_dir}" $vr_reg_loc show

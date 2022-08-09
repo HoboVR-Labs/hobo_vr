@@ -357,8 +357,31 @@ for i in range(60 * 8):
 
     time.sleep(1 / 60)
 
+#######################################################################
+# now lets add some an addon :P
+
+# tell the manager about current device setup
+device_list = MANAGER_UDU_MSG_t.pack(
+    20,  # HobovrManagerMsgType::Emsg_uduString
+    7,   # 6 devices - 1 hmd, 2 controllers, 3 trackers
+    0, 6969,  # device description
+    1, 6969,  # device description
+    1, 6969,  # device description
+    2, 6969,  # device description
+    2, 6969,  # device description
+    2, 6969,  # device description
+    3, 69,  # device description
+    *np.zeros((128 - 2 * 7), dtype=int)
+)
+
+manager_socket.sendall(device_list + SEND_TERMINATOR)
+
+print("hmd with controllers and trackers: orbit...")
 
 print("press ctrl+C to stop...")
+
+GAZE_t = struct.Struct("I13f")
+
 
 try:
     i = 0
@@ -439,6 +462,17 @@ try:
             int(i % 60 == 0) / 10, 0, 0,
             0, 0, 0
         )
+
+        # yes this thing is an eye tracker :P
+        temp = GAZE_t.pack(
+            1,      # status
+            0.001,  # age
+            i % 200, 32,
+            0, 0,
+            1, 0, 0, 0,
+            1, 0, 0, 0
+        )
+        packet += temp
 
         tracking_socket.sendall(
             hmd_pose + packet + SEND_TERMINATOR

@@ -50,6 +50,16 @@
 			"Prop_NamedIconPathDeviceNotReady_String" : "{hobovr}/icons/base_status_error.png",
 			"Prop_NamedIconPathDeviceStandby_String" : "{hobovr}/icons/base_status_standby.png",
 			"Prop_NamedIconPathDeviceAlertLow_String" : "{hobovr}/icons/base_status_ready_low.png"
+		},
+		"hobovr_gaze_master" : {
+			"Prop_NamedIconPathDeviceOff_String" : "{hobovr}/icons/gaze_master_status_off.png",
+			"Prop_NamedIconPathDeviceSearching_String" : "{hobovr}/icons/gaze_master_status_searching.gif",
+			"Prop_NamedIconPathDeviceSearchingAlert_String" : "{hobovr}/icons/gaze_master_status_searching_alert.gif",
+			"Prop_NamedIconPathDeviceReady_String" : "{hobovr}/icons/gaze_master_status_off.png",
+			"Prop_NamedIconPathDeviceReadyAlert_String" : "{hobovr}/icons/gaze_master_status_ready_alert.png",
+			"Prop_NamedIconPathDeviceNotReady_String" : "{hobovr}/icons/gaze_master_status_error.png",
+			"Prop_NamedIconPathDeviceStandby_String" : "{hobovr}/icons/gaze_master_status_standby.png",
+			"Prop_NamedIconPathDeviceAlertLow_String" : "{hobovr}/icons/gaze_master_status_ready_low.png"
 		}
 	}	    
 }

@@ -47,7 +47,6 @@ Matrix3x3.hpp
 Vector2.hpp
 Vector3.hpp
 Quaternion.hpp
-boost/
 venv/
 bindings/cpp/examples/uduPoserTemplate/*.h
 bindings/cpp/examples/uduPoserTemplate/uduPoserTemplate/*.h

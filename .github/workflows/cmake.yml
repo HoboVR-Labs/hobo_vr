@@ -22,28 +22,53 @@ jobs:
     runs-on: ${{ inputs.platform }}
 
     steps:
-      - name: Clone repo
-        uses: actions/checkout@v3
+    - name: Clone repo
+      uses: actions/checkout@v3
 
-      - name: Clone submodules
-        run: git submodule init && git submodule update
+    - name: Clone submodules
+      run: git submodule update --init --recursive --jobs $(nproc)
 
-      - name: Configure CMake
-        # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-        run: cmake driver -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{inputs.buildType}}
+    # Configure CMake projects
+    - name: Configure Driver CMake
+      run: cmake driver -B ${{github.workspace}}/driver_build -DCMAKE_BUILD_TYPE=${{inputs.buildType}}
 
-      - name: Build
-        # Build your program with the given configuration
-        run: cmake --build ${{github.workspace}}/build --config ${{inputs.buildType}}
+    - name: Configure Poser Cmake
+      run: cmake bindings/cpp/examples/uduTest -B ${{github.workspace}}/poser_build -DCMAKE_BUILD_TYPE=${{inputs.buildType}}
 
-      - name: Install
-        # Install the built driver into it's directory
-        run: cmake --install ${{github.workspace}}/build
+    # Builds targets
+    - name: Build Driver
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/driver_build --config ${{inputs.buildType}} -j $(nproc)
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: hobovr-build-${{ inputs.platform }}
-          path: |
-            hobovr
+    - name: Build Poser
+      run: cmake --build ${{github.workspace}}/poser_build --config ${{inputs.buildType}} -j $(nproc)
+
+    - name: Fix Boost Install
+      uses: "finnp/create-file-action@master"
+      env:
+        FILE_NAME: ${{github.workspace}}/driver_build/boost/cmake_install.cmake
+        FILE_DATA: ""
+
+    # Install targets
+    - name: Install Driver
+      # Install the built driver into it's directory
+      run: cmake --install ${{github.workspace}}/driver_build
+
+    - name: Install Poser
+      run: cmake --install ${{github.workspace}}/poser_build
+
+    # Upload build artifacts
+    - name: Upload Driver Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: hobovr-build-${{ inputs.platform }}
+        path: |
+          hobovr
+
+    - name: Upload poser Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-poser-${{ inputs.platform }}
+        # could have different extensions depending on the platform
+        path: bindings/cpp/examples/uduTest/output/test_poser
+
