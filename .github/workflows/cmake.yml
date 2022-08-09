@@ -43,6 +43,12 @@ jobs:
     - name: Build Poser
       run: cmake --build ${{github.workspace}}/poser_build --config ${{inputs.buildType}} -j $(nproc)
 
+    - name: Fix Boost Install
+      uses: "finnp/create-file-action@master"
+      env:
+        FILE_NAME: ${{github.workspace}}/driver_build/boost/cmake_install.cmake
+        FILE_DATA: ""
+
     # Install targets
     - name: Install Driver
       # Install the built driver into it's directory
