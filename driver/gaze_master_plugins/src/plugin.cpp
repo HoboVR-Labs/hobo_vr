@@ -1,5 +1,8 @@
 #ifdef WIN
 #include <cstring>
+#include <cstdarg>
+#include <string>
+#include <iostream>
     // #define _snprintf _snprintf_s
     // #define snprintf _snprintf
     // #undef snprintf
