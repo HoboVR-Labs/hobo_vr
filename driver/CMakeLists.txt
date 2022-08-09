@@ -26,14 +26,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 
-if (MSVC)
-    # all warnings as errors
-    add_compile_options(/W4 /WX)
-else()
-    # all warnings as errors
-    add_compile_options(-Wall -Wextra -pedantic -Werror -Wno-missing-braces)
-endif()
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 
 # options
@@ -108,16 +100,20 @@ set(SHROOM_INCLUDE_DIR "shroom/include/")
 add_subdirectory("lazy-sockets")
 set(LAZY_SOCKETS_INCLUDE_DIR "lazy-sockets/src/")
 
+set(Boost_USE_STATIC_LIBS ON)
+add_subdirectory(boost)
+
+file(GLOB Boost_LOCAL_INCLUDE_DIRS
+  "./boost/libs/*/include"
+)
+
 # example gaze master plugin
 add_subdirectory("gaze_master_plugins")
-
-set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost REQUIRED)
 
 # actual build instructions
 include_directories(
   ${OPENVR_INCLUDE_DIR}
-  ${Boost_INCLUDE_DIR}
+  ${Boost_LOCAL_INCLUDE_DIRS}
   ${SHROOM_INCLUDE_DIR}
   ${LAZY_SOCKETS_INCLUDE_DIR}
   "src/plugins/"
@@ -138,16 +134,22 @@ add_library(${TARGET_NAME} SHARED
   ${driver_hobovr_src}
 )
 
+if (MSVC)
+    # all warnings as errors
+    target_compile_options(${TARGET_NAME} PRIVATE /W4 /WX)
+else()
+    # all warnings as errors
+    target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -pedantic -Werror -Wno-missing-braces)
+endif()
+
 target_link_libraries(${TARGET_NAME}
   "${OPENVR_LIBRARIES}"
   shoom
   lazy_sockets
   -lstdc++fs
-  ${Boost_DLL_LIBRARY}
+  boost_dll
   ${CMAKE_DL_LIBS}
 )
-
-message(NOTICE "boost_root: ${BOOST_ROOT}|")
 
 install(
   TARGETS
