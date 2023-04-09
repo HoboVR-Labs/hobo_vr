@@ -1,9 +1,21 @@
-# plugins required:
-# 	Inetc: https://nsis.sourceforge.io/Inetc_plug-in
-# 	Nsisunz: https://nsis.sourceforge.io/Nsisunz_plug-in
-#	ExecDos: https://nsis.sourceforge.io/ExecDos_plug-in
-#	Locate: https://nsis.sourceforge.io/Locate_plugin
-#   Download the zip files from each of those and copy the contents of the plugin.zip/Plugins directory to program files/NSIS/plugins
+# conda execute
+# env:
+#  - nsis 3.*
+#  - AccessControl
+#  - InetC
+#  - Nsisunz
+#  - ExecDos
+#  - Locate
+#  - Registry
+#  - nsDialogs
+#  - winmessages
+#  - MUI2
+#  - Logiclib
+#  - x64
+# channels:
+#  - nsis
+# run_with: makensis
+
 !include nsDialogs.nsh
 !include MUI2.nsh
 !include "winmessages.nsh"
