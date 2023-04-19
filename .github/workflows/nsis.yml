@@ -1,0 +1,76 @@
+name: nsis
+
+on:
+  workflow_run:
+    workflows: [ Build ]
+    types: [ completed ]
+  workflow_dispatch:
+
+jobs:
+  config:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.files.outputs.matrix }}
+      branch: ${{ steps.branch-ref.outputs.name }}
+    steps:
+      - uses: actions/checkout@master
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Return Branch
+        id: branch-ref
+        run: echo "name=${{ github.event.workflow_run.head_branch }}"  >> $GITHUB_OUTPUT
+
+      - name: Get Script Files
+        id: list-files
+        uses: Rishabh510/Path-lister-action@master
+        with:
+          path: installers/
+          type: .nsi
+
+      - name: Return Script Files
+        id: files
+        run: echo "matrix=$(echo "${{ steps.list-files.outputs.paths }}" | sed 's/\//\\/g' | jq --raw-input --compact-output '[splits(" ") | select(length > 0)]')" >> $GITHUB_OUTPUT
+
+  make-installer:
+    runs-on: windows-latest
+    needs: [ config ]
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJson(needs.config.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@master
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: ${{ github.event.workflow_run.workflow_id }}
+          workflow_conclusion: success
+          name: hobovr-build-windows-latest
+          path: ${{ github.workspace }}
+
+      - name: Create nsis installer
+        id: create-installer
+        shell: powershell
+        run: |
+          "$CONDA\bin\conda.bat execute ${{ matrix.file }}"
+        working-directory: ${{ github.workspace }}\installers\win
+
+      - name: Identify Compiled Installer
+        id: find-installer
+        shell: powershell
+        run: |
+          $exec_file=sed -rn 's/OutFile \"(.*)\"$/\1/p' ./${{ matrix.file }}
+          echo "executable=$exec_file" >> $Env:GITHUB_OUTPUT
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.find-installer.outputs.executable }}
+          path: |
+            ${{ github.workspace }}
