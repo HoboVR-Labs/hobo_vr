@@ -60,9 +60,24 @@ jobs:
           "$CONDA\bin\conda.bat execute ${{ matrix.file }}"
         working-directory: ${{ github.workspace }}\installers\win
 
+      - name: Identify Compiled Installer
+        id: find-installer
+        shell: powershell
+        run: |
+          $exec_file=sed -rn 's/OutFile \"(.*)\"$/\1/p' ./${{ matrix.file }}
+          echo "executable=$exec_file" >> $Env:GITHUB_OUTPUT
+        working-directory: ${{ github.workspace }}
+
+      - name: DebugInstaller
+        id: debug-installer
+        shell: powershell
+        run: |
+          echo ${{ steps.find-installer.outputs.executable }}
+        working-directory: ${{ github.workspace }}
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: "hobovr_setup.exe" # Get the Output Name
+          name: ${{ steps.find-installer.outputs.executable }}
           path: |
-            hobovr
+            ${{ github.workspace }}
