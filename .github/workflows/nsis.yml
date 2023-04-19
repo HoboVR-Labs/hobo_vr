@@ -20,7 +20,7 @@ jobs:
 
       - name: Return Branch
         id: branch-ref
-        run: echo "::set-output name=${{ github.event.workflow_run.head_branch }}"
+        run: echo "name=${{ github.event.workflow_run.head_branch }}"  >> $GITHUB_OUTPUT
 
       - name: Get Script Files
         id: list-files
@@ -31,7 +31,7 @@ jobs:
 
       - name: Return Script Files
         id: files
-        run: echo "::set-output name=matrix::$(echo "${{ steps.list-files.outputs.paths }}" | sed 's/\//\\/g' | jq --raw-input --compact-output '[splits(" ") | select(length > 0)]')"
+        run: echo "matrix=$(echo "${{ steps.list-files.outputs.paths }}" | sed 's/\//\\/g' | jq --raw-input --compact-output '[splits(" ") | select(length > 0)]')" >> $GITHUB_OUTPUT
 
   make-installer:
     runs-on: windows-latest
