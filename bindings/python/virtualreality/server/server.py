@@ -230,7 +230,7 @@ class Server:
 def run_til_dead(poser=None, conn_handle=Server()):
     """Run the server until it dies."""
     loop = asyncio.get_event_loop()
-    coro = asyncio.start_server(conn_handle, *DOMAIN, loop=loop)
+    coro = asyncio.start_server(conn_handle, *DOMAIN)
     server = loop.run_until_complete(coro)
 
     if poser is not None:
